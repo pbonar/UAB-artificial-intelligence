@@ -1,3 +1,5 @@
+# SearchAlgorithm.py
+
 # This file contains all the required routines to make an A* search algorithm.
 #
 __author__ = '1759684'
@@ -61,8 +63,7 @@ def insert_depth_first_search(expand_paths, list_of_path):
         Returns:
             list_of_path (LIST of Path Class): List of Paths where Expanded Path is inserted
     """
-    return
-    pass
+    return expand_paths + list_of_path
 
 
 def depth_first_search(origin_id, destination_id, map):
@@ -76,7 +77,15 @@ def depth_first_search(origin_id, destination_id, map):
         Returns:
             list_of_path[0] (Path Class): the route that goes from origin_id to destination_id
     """
-    pass
+    stack = [Path(origin_id)]
+    while stack:
+        path = stack.pop(0)
+        if path.last == destination_id:
+            return path
+        expanded_paths = expand(path, map)
+        expanded_paths = remove_cycles(expanded_paths)
+        stack = insert_depth_first_search(expanded_paths, stack)
+    return None
 
 
 def insert_breadth_first_search(expand_paths, list_of_path):
@@ -89,7 +98,7 @@ def insert_breadth_first_search(expand_paths, list_of_path):
            Returns:
                list_of_path (LIST of Path Class): List of Paths where Expanded Path is inserted
     """
-    pass
+    return list_of_path + expand_paths
 
 
 def breadth_first_search(origin_id, destination_id, map):
@@ -103,25 +112,56 @@ def breadth_first_search(origin_id, destination_id, map):
         Returns:
             list_of_path[0] (Path Class): The route that goes from origin_id to destination_id
     """
-    pass
+    queue = [Path(origin_id)]
+    while queue:
+        path = queue.pop(0)
+        if path.last == destination_id:
+            return path
+        expanded_paths = expand(path, map)
+        expanded_paths = remove_cycles(expanded_paths)
+        queue = insert_breadth_first_search(expanded_paths, queue)
+    return None
 
 
 def calculate_cost(expand_paths, map, type_preference=0):
     """
-         Calculate the cost according to type preference
-         Format of the parameter is:
-            Args:
-                expand_paths (LIST of Paths Class): Expanded paths
-                map (object of Map class): All the map information
-                type_preference: INTEGER Value to indicate the preference selected:
-                                0 - Adjacency
-                                1 - minimum Time
-                                2 - minimum Distance
-                                3 - minimum Transfers
-            Returns:
-                expand_paths (LIST of Paths): Expanded path with updated cost
+    Calculate the cost according to type preference
+    Format of the parameter is:
+        Args:
+            expand_paths (LIST of Paths Class): Expanded paths
+            map (object of Map class): All the map information
+            type_preference: INTEGER Value to indicate the preference selected:
+                            0 - Adjacency
+                            1 - minimum Time
+                            2 - minimum Distance
+                            3 - minimum Transfers
+        Returns:
+            expand_paths (LIST of Paths): Expanded path with updated cost
     """
-    pass
+    for path in expand_paths:
+        total_cost = 0  # Initialize total cost for the entire path
+        for i in range(len(path.route) - 1):
+            station1 = path.route[i]
+            station2 = path.route[i + 1]
+            if station1 in map.connections and station2 in map.connections[station1]:
+                if type_preference == 0:
+                    # Cost is the number of stations traveled (adjacency)
+                    total_cost += 1
+                elif type_preference == 1:
+                    # Cost is the distance between stations (in meters)
+                    time_cost = map.connections[station1][station2]
+                    total_cost += time_cost
+                elif type_preference == 2:
+                    velocity = map.stations[station1]['velocity']
+                    distance_cost = map.connections[station1][station2] * velocity
+                    total_cost += distance_cost
+                elif type_preference == 3:
+                    # Cost is the number of transfers (penalty for changing lines)
+                    if map.stations[station1]['line'] != map.stations[station2]['line']:
+                        total_cost += 1  # Penalty for transfer
+        path.g = total_cost  # Update the total cost of the path
+    return expand_paths
+
 
 
 def insert_cost(expand_paths, list_of_path):
@@ -134,13 +174,13 @@ def insert_cost(expand_paths, list_of_path):
            Returns:
                list_of_path (LIST of Path Class): List of Paths where expanded_path is inserted according to cost
     """
-    pass
+    return sorted(list_of_path + expand_paths, key=lambda path: path.g)
 
 
 def uniform_cost_search(origin_id, destination_id, map, type_preference=0):
     """
-     Uniform Cost Search algorithm
-     Format of the parameter is:
+    Uniform Cost Search algorithm
+    Format of the parameter is:
         Args:
             origin_id (int): Starting station id
             destination_id (int): Final station id
@@ -151,29 +191,29 @@ def uniform_cost_search(origin_id, destination_id, map, type_preference=0):
                             2 - minimum Distance
                             3 - minimum Transfers
         Returns:
-            list_of_path[0] (Path Class): The route that goes from origin_id to destination_id
+            Path: The cheapest route that goes from origin_id to destination_id
     """
     pass
 
 
 def calculate_heuristics(expand_paths, map, destination_id, type_preference=0):
     """
-     Calculate and UPDATE the heuristics of a path according to type preference
-     WARNING: In calculate_cost, we didn't update the cost of the path inside the function
-              for the reasons which will be clear when you code Astar (HINT: check remove_redundant_paths() function).
-     Format of the parameter is:
-        Args:
-            expand_paths (LIST of Path Class): Expanded paths
-            map (object of Map class): All the map information
-            destination_id (int): Final station id
-            type_preference: INTEGER Value to indicate the preference selected:
-                            0 - Adjacency
-                            1 - minimum Time
-                            2 - minimum Distance
-                            3 - minimum Transfers
-        Returns:
-            expand_paths (LIST of Path Class): Expanded paths with updated heuristics
+    Calculate and UPDATE the heuristics of a path according to type preference.
+    The heuristic is an estimate of the cost from the current station to the destination.
+
+    Args:
+        expand_paths (LIST of Path Class): Expanded paths
+        map (object of Map class): All the map information
+        destination_id (int): Final station id
+        type_preference: INTEGER Value to indicate the preference selected:
+                        0 - Adjacency
+                        1 - minimum Time
+                        2 - minimum Distance
+                        3 - minimum Transfers
+    Returns:
+        expand_paths (LIST of Path Class): Expanded paths with updated heuristics
     """
+    # Get the coordinates of the destination station
     pass
 
 
@@ -230,7 +270,17 @@ def distance_to_stations(coord, map):
             (dict): Dictionary containing as keys, all the Indexes of all the stations in the map, and as values, the
             distance between each station and the coord point
     """
-    pass
+    distances = {}
+    user_x, user_y = coord
+
+    for station_id, station_info in map.stations.items():
+        station_x = station_info['x']
+        station_y = station_info['y']
+        dist = euclidean_dist((user_x, user_y), (station_x, station_y))
+        distances[station_id] = dist
+
+    sorted_distances = dict(sorted(distances.items(), key=lambda x: (x[1], x[0])))
+    return sorted_distances
 
 
 def Astar(origin_id, destination_id, map, type_preference=0):
@@ -265,3 +315,22 @@ def Astar_improved(origin_coord, destination_coord, map):
             list_of_path[0] (Path Class): The route that goes from origin_coord to destination_coord
     """
     pass
+
+# Just for testing
+if __name__ == "__main__":
+    ROOT_FOLDER = 'CityInformation/Lyon_smallCity/'
+    subway_map = read_station_information(os.path.join(ROOT_FOLDER, 'Stations.txt'))
+    connections = read_cost_table(os.path.join(ROOT_FOLDER, 'Time.txt'))
+    subway_map.add_connection(connections)
+
+    info_velocity_clean = read_information(os.path.join(ROOT_FOLDER, 'InfoVelocity.txt'))
+    subway_map.add_velocity(info_velocity_clean)
+
+    map = subway_map
+
+    # for path in ...:
+    #     print(path.route)
+    print(breadth_first_search( 1, 10, map).route)
+    print(depth_first_search( 1, 10, map).route)
+
+    print(distance_to_stations([0, 0], map))
