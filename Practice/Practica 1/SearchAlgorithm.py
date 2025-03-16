@@ -1,23 +1,17 @@
 # SearchAlgorithm.py
 
 # This file contains all the required routines to make an A* search algorithm.
-#
-__author__ = '1759684'
 
-import heapq
+__author__ = '1759684'
 
 # _________________________________________________________________________________________
 # Intel.ligencia Artificial
-# Curs 2023 - 2024
+# Curs 2024 - 2025
 # Universitat Autonoma de Barcelona
 # _______________________________________________________________________________________
 
 from SubwayMap import *
 from utils import *
-import os
-import math
-import copy
-
 
 def expand(path, map):
     """
@@ -201,8 +195,6 @@ def uniform_cost_search(origin_id, destination_id, map, type_preference=0):
     while priority_queue:
         next_queue = []
 
-        print("Current priority queue:", [f"{p.route} {p.g}" for p in priority_queue])
-
         for path in priority_queue:
             if path.last == destination_id:
                 if path.g < best_cost:
@@ -253,18 +245,18 @@ def calculate_heuristics(expand_paths, map, destination_id, type_preference=0):
         last_coords = (map.stations[last_station]['x'], map.stations[last_station]['y'])
 
         distance = euclidean_dist(last_coords, destination_coords)
-        # current_line = map.stations[last_station]['line']
-        max_velocity = max(map.velocity.values()) if map.velocity else 10
+        max_velocity = max(map.velocity.values()) if map.velocity else 45
 
         if type_preference == 0:
             path.h = 1 if path.last != destination_id else 0
+
         if type_preference == 1:
             path.h = distance / max_velocity
+
         elif type_preference == 2:
             path.h = distance
+
         elif type_preference == 3:
-            print("Last: ", map.stations[last_station]['line'])
-            print("Dest: ", map.stations[destination_id]['line'])
             current_line = map.stations[last_station]['line']
             destination_line = map.stations[destination_id]['line']
             if current_line == destination_line:
@@ -380,7 +372,6 @@ def Astar(origin_id, destination_id, map, type_preference=0):
         path = priority_queue.pop(0)
         if path.last == destination_id:
             return path
-        print(path)
         expanded_paths = expand(path, map)
         calculate_cost(expanded_paths, map, type_preference)
         calculate_heuristics(expanded_paths, map, destination_id, type_preference)
@@ -389,6 +380,54 @@ def Astar(origin_id, destination_id, map, type_preference=0):
                                                                                        visited_stations_cost)
         priority_queue = insert_cost_f(expanded_paths, priority_queue)
     return None
+
+
+def calculate_heuristics_astar_improved(expand_paths, map, destination_coords):
+    for path in expand_paths:
+        if path is not None:
+            last_station = path.last
+            if last_station == -1:
+                path.h = 0
+            else:
+                last_coords = (map.stations[last_station]['x'], map.stations[last_station]['y'])
+                distance = euclidean_dist(last_coords, destination_coords)
+                max_velocity = max(map.velocity.values()) if map.velocity else 10
+
+                path.h = distance / max_velocity
+    return expand_paths
+
+def calculate_cost_astar_improved(expand_paths, map, start_dict, end_dict, walking_speed):
+    for path in expand_paths:
+        if path is not None:
+            total_cost = start_dict[path.route[1]] / walking_speed
+            for i in range(len(path.route) - 2):
+                station1 = path.route[i + 1]
+                station2 = path.route[i + 2]
+
+                if station2 == -1:
+                    total_cost += end_dict[station1] / walking_speed
+                if station1 in map.connections and station2 in map.connections[station1]:
+                    time_cost = map.connections[station1][station2]
+                    total_cost += time_cost
+
+            path.g = total_cost
+    return expand_paths
+
+def update_f_astar_improved(expand_paths):
+    """
+      Update the f of a path
+      Format of the parameter is:
+         Args:
+             expand_paths (LIST of Path Class): Expanded paths
+         Returns:
+             expand_paths (LIST of Path Class): Expanded paths with updated costs
+    """
+    for path in expand_paths:
+        if path is not None:
+            path.update_f()
+
+    return expand_paths
+
 
 def Astar_improved(origin_coord, destination_coord, map):
     """
@@ -404,120 +443,57 @@ def Astar_improved(origin_coord, destination_coord, map):
     """
     walking_speed = 5
 
-    # Get the distance to stations for both the origin and destination
     start_dict = distance_to_stations(origin_coord, map)
     end_dict = distance_to_stations(destination_coord, map)
 
     priority_queue = []
     visited_stations_cost = {}
 
-    # Initialize the priority queue with the starting points
     for station_id, distance in start_dict.items():
         time_to_station = distance / walking_speed
-        heuristic_to_destination = end_dict[station_id] / walking_speed
+        heuristic_to_destination = end_dict.get(station_id, float('inf')) / 45
         path = Path([0, station_id])
         path.g = time_to_station
         path.h = heuristic_to_destination
         path.update_f()
         priority_queue.append(path)
 
-    # Direct walk from origin to destination
-    direct_walk_time = distance_to_stations(origin_coord, {0: destination_coord})[0] / walking_speed
+    if not start_dict or not end_dict:
+        return None
+
+    direct_walk_time = euclidean_dist(origin_coord, destination_coord) / walking_speed  # Get shortest walking time
     direct_path = Path([0, -1])
     direct_path.g = direct_walk_time
     direct_path.h = 0
-    direct_path.f = direct_path.g + direct_path.h
+    direct_path.update_f()
     priority_queue.append(direct_path)
 
-    # Sort the queue based on f values
     priority_queue.sort(key=lambda x: x.f)
+    priority_queue = [p for p in priority_queue if p is not None]
 
     while priority_queue:
-        path = priority_queue.pop(0)  # Pop the path with the lowest f value
+        path = priority_queue.pop(0)
 
-        if path.last == -1:  # Reached destination
+        if path.last == -1:
             return path
 
-        if path.last in visited_stations_cost and visited_stations_cost[path.last] <= path.g:
+        if path.last in visited_stations_cost and visited_stations_cost[path.last] < path.g and path.last != -1:
             continue
         visited_stations_cost[path.last] = path.g
 
-        # Expand paths from stations
-        if path.last != 0:
+        if path.last != 0 and path is not None:
             expanded_paths = expand(path, map)
-            calculate_cost(expanded_paths, map, 1)  # Minimize time
-            calculate_heuristics(expanded_paths, map, None, 1)
-            update_f(expanded_paths)
+            expanded_paths = [p for p in expanded_paths if p is not None]
+            expanded_paths.append(Path(path.route + [-1]))
+            expanded_paths = calculate_cost_astar_improved(expanded_paths, map, start_dict, end_dict, walking_speed)
+            expanded_paths = calculate_heuristics_astar_improved(expanded_paths, map, destination_coord)
+            update_f_astar_improved(expanded_paths)
 
-            # Remove redundant paths (those that have already been visited with a lower cost)
             expanded_paths, priority_queue, visited_stations_cost = remove_redundant_paths(
                 expanded_paths, priority_queue, visited_stations_cost
             )
 
-            # Insert expanded paths into priority_queue and sort it
             priority_queue.extend(expanded_paths)
-            priority_queue.sort(key=lambda x: x.f)  # Keep the queue sorted by f
-
-            # Option to walk directly to the destination
-            if path.last in end_dict:
-                walk_to_dest_time = end_dict[path.last] / walking_speed
-                final_path = Path(path.route + [-1])
-                final_path.g = path.g + walk_to_dest_time
-                final_path.h = 0
-                final_path.f = final_path.g + final_path.h
-                priority_queue.append(final_path)
-                priority_queue.sort(key=lambda x: x.f)  # Keep the queue sorted by f
+            priority_queue.sort(key=lambda x: x.f)
 
     return None
-
-
-# Just for testing
-if __name__ == "__main__":
-    ROOT_FOLDER = 'CityInformation/Lyon_smallCity/'
-    subway_map = read_station_information(os.path.join(ROOT_FOLDER, 'Stations.txt'))
-    connections = read_cost_table(os.path.join(ROOT_FOLDER, 'Time.txt'))
-    subway_map.add_connection(connections)
-
-    info_velocity_clean = read_information(os.path.join(ROOT_FOLDER, 'InfoVelocity.txt'))
-    subway_map.add_velocity(info_velocity_clean)
-
-    map = subway_map
-
-    # for path in ...:
-    #     print(path.route)
-    # print(breadth_first_search( 1, 10, map).route)
-    # print(depth_first_search( 1, 10, map).route)
-    #
-    # print(distance_to_stations([0, 0], map))
-    # Astar_improved([0,0], [200,200], map)
-
-    print("hola: ", Astar(4,14, map, 1).route, Astar(4,14, map, 1).g)
-
-# if __name__ == "__main__":
-#     ROOT_FOLDER = 'CityInformation/Lyon_smallCity/'
-#     subway_map = read_station_information(os.path.join(ROOT_FOLDER, 'Stations.txt'))
-#     connections = read_cost_table(os.path.join(ROOT_FOLDER, 'Time.txt'))
-#     subway_map.add_connection(connections)
-#
-#     info_velocity_clean = read_information(os.path.join(ROOT_FOLDER, 'InfoVelocity.txt'))
-#     subway_map.add_velocity(info_velocity_clean)
-#
-#     map = subway_map
-#     destination_id = 10  # Set this to a station ID that will be your destination
-#
-#     # Get all stations and calculate heuristics for distance (Euclidean distance)
-#     best_heuristic = float('inf')
-#     best_station = None
-#
-#     # Iterate over all stations to calculate heuristics
-#     for station_id in map.stations:
-#         path = Path([station_id])
-#         expand_paths = [path]  # Expand the initial path
-#         expanded_paths = calculate_heuristics(expand_paths, map, destination_id, type_preference=2)  # 2 is for distance
-#         for expanded_path in expanded_paths:
-#             if expanded_path.h < best_heuristic:
-#                 best_heuristic = expanded_path.h
-#                 best_station = station_id
-#
-#     # Output the result
-#     print(f"The best value of heuristics for distance is {best_heuristic} for station {best_station}")
