@@ -187,17 +187,44 @@ class KMeans:
         self.WCD = np.mean(squared_distances)
         return self.WCD
 
-    def find_bestK(self, max_K):
+    def find_bestK(self, max_K, threshold=20):
         """
-         sets the best k analysing the results up to 'max_K' clusters
+        Finds the optimal number of clusters by analyzing WCD improvement rates.
+        Returns the K where WCD improvement drops below threshold.
+        If no such K is found, returns max_K.
+
+        Args:
+            max_K (int): Maximum number of clusters to try
+            threshold (float): Improvement percentage threshold (default 20%)
+
+        Returns:
+            int: Optimal number of clusters found
         """
-        #######################################################
-        ##  YOU MUST REMOVE THE REST OF THE CODE OF THIS FUNCTION
-        ##  AND CHANGE FOR YOUR OWN CODE
-        #######################################################
-        pass
+        if max_K < 2:
+            return max_K
 
+        original_K = self.K
+        wcd_values = []
+        best_k = max_K  # Default to max_K if no better k is found
 
+        for k in range(2, max_K + 1):
+            self.K = k
+            self.fit()
+            current_wcd = self.withinClassDistance()
+            wcd_values.append(current_wcd)
+
+            # Start checking improvements from K=3 onward
+            if k >= 3:
+                # Calculate percentage improvement
+                improvement = 100 * (wcd_values[-2] - wcd_values[-1]) / wcd_values[-2]
+
+                # If improvement drops below threshold, select previous K
+                if improvement < threshold:
+                    best_k = k - 1
+                    break
+
+        self.K = best_k  # Update to best found K
+        return best_k
 def distance(X, C):
     """
     Calculates the distance between each pixel and each centroid
@@ -215,16 +242,12 @@ def distance(X, C):
 
 def get_colors(centroids):
     """
-    for each row of the numpy matrix 'centroids' returns the color label following the 11 basic colors as a LIST
+    Assigns color labels to each centroid based on the closest match to basic colors.
+
     Args:
-        centroids (numpy array): KxD 1st set of data points (usually centroid points)
+        centroids (numpy array): KxD array of centroid colors in RGB space
 
     Returns:
-        labels: list of K labels corresponding to one of the 11 basic colors
+        list: Color labels corresponding to each centroid
     """
-
-    #########################################################
-    ##  YOU MUST REMOVE THE REST OF THE CODE OF THIS FUNCTION
-    ##  AND CHANGE FOR YOUR OWN CODE
-    #########################################################
-    return list(utils.colors)
+    pass
