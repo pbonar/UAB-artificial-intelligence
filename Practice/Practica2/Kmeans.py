@@ -118,13 +118,18 @@ class KMeans:
 
     def converges(self):
         """
-        Checks if there is a difference between current and old centroids
+        Checks if the centroids have converged by comparing current and previous centroids.
+        Returns True if the maximum change in any centroid is less than the tolerance threshold,
+        False otherwise.
         """
-        #######################################################
-        ##  YOU MUST REMOVE THE REST OF THE CODE OF THIS FUNCTION
-        ##  AND CHANGE FOR YOUR OWN CODE
-        #######################################################
-        return True
+        if self.num_iter >= self.options['max_iter']:
+            return True
+
+        if not hasattr(self, 'old_centroids'):
+            return False
+
+        distances = np.linalg.norm(self.centroids - self.old_centroids, axis=1)
+        return np.all(distances <= self.options['tolerance']) and self.num_iter <= self.options['max_iter']
 
     def fit(self):
         """
@@ -171,10 +176,6 @@ def distance(X, C):
         i-th point of the first set an the j-th point of the second set
     """
 
-    #########################################################
-    ##  YOU MUST REMOVE THE REST OF THE CODE OF THIS FUNCTION
-    ##  AND CHANGE FOR YOUR OWN CODE
-    #########################################################
     return np.linalg.norm(X[:, np.newaxis] - C, axis=2)
 
 
