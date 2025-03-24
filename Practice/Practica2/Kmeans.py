@@ -63,19 +63,37 @@ class KMeans:
 
     def _init_centroids(self):
         """
-        Initialization of centroids
+        Initializes centroids based on the selected initialization method.
+        The available methods are:
+        - 'first': Uses the first K distinct points from X.
+        - 'random': Selects K unique random points from X.
         """
+        self.old_centroids = np.zeros((self.K, self.X.shape[1]))  # Initialize old centroids
 
-        #######################################################
-        ##  YOU MUST REMOVE THE REST OF THE CODE OF THIS FUNCTION
-        ##  AND CHANGE FOR YOUR OWN CODE
-        #######################################################
         if self.options['km_init'].lower() == 'first':
-            self.centroids = np.random.rand(self.K, self.X.shape[1])
-            self.old_centroids = np.random.rand(self.K, self.X.shape[1])
+            # Select the first K distinct points
+            seen = set()
+            centroids = []
+            for point in self.X:
+                tuple_point = tuple(point)  # Convert to tuple for uniqueness check
+                if tuple_point not in seen:
+                    seen.add(tuple_point)
+                    centroids.append(point)
+                if len(centroids) == self.K:
+                    break
+            
+            if len(centroids) < self.K:
+                raise ValueError("Not enough unique points to initialize K distinct centroids.")
+            
+            self.centroids = np.array(centroids, dtype=np.float32)
+
+        elif self.options['km_init'].lower() == 'random':
+            # Select K unique random points as centroids
+            indices = np.random.choice(self.X.shape[0], self.K, replace=False)
+            self.centroids = self.X[indices].astype(np.float32)
+
         else:
-            self.centroids = np.random.rand(self.K, self.X.shape[1])
-            self.old_centroids = np.random.rand(self.K, self.X.shape[1])
+            raise ValueError("Invalid initialization method. Choose 'first' or 'random'.")
 
     def get_labels(self):
         """
