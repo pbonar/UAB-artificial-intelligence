@@ -104,13 +104,17 @@ class KMeans:
 
     def get_centroids(self):
         """
-        Calculates coordinates of centroids based on the coordinates of all the points assigned to the centroid
+        Updates the centroids by computing the mean of all points assigned to each centroid.
         """
-        #######################################################
-        ##  YOU MUST REMOVE THE REST OF THE CODE OF THIS FUNCTION
-        ##  AND CHANGE FOR YOUR OWN CODE
-        #######################################################
-        pass
+        self.old_centroids = self.centroids.copy()  # Store the old centroids
+
+        new_centroids = np.zeros_like(self.centroids, dtype=np.float64)  # Use float64 for precision
+        for k in range(self.K):
+            points = self.X[self.labels == k]  # Select all points belonging to cluster k
+            if len(points) > 0:
+                new_centroids[k] = np.mean(points, axis=0, dtype=np.float64)  # Compute mean with high precision
+
+        self.centroids = new_centroids.astype(np.float64)
 
     def converges(self):
         """
