@@ -133,25 +133,59 @@ class KMeans:
 
     def fit(self):
         """
-        Runs K-Means algorithm until it converges or until the number of iterations is smaller
-        than the maximum number of iterations.
+        Runs K-Means algorithm until it converges or until reaching maximum iterations.
+        The steps are:
+        1. Initialize centroids
+        2. Repeat until convergence:
+            a. Assign points to nearest centroids (get_labels)
+            b. Update centroids (get_centroids)
+            c. Check convergence
         """
-        #######################################################
-        ##  YOU MUST REMOVE THE REST OF THE CODE OF THIS FUNCTION
-        ##  AND CHANGE FOR YOUR OWN CODE
-        #######################################################
-        pass
+        # Initialize centroids
+        self._init_centroids()
+        self.num_iter = 0
+
+        while True:
+            # Assign each point to the nearest centroid
+            self.get_labels()
+
+            # Update centroids based on current assignments
+            self.get_centroids()
+
+            # Increment iteration counter
+            self.num_iter += 1
+
+            # Check for convergence
+            if self.converges():
+                break
+
+            # Optional: print progress if verbose mode is enabled
+            if self.options['verbose'] and self.num_iter % 10 == 0:
+                print(f"Iteration {self.num_iter}, Current WCD: {self.withinClassDistance()}")
+
+        # Final WCD calculation
+        self.withinClassDistance()
+
+        if self.options['verbose']:
+            print(f"Converged after {self.num_iter} iterations")
+            print(f"Final WCD: {self.WCD}")
+
 
     def withinClassDistance(self):
         """
          returns the within class distance of the current clustering
         """
 
-        #######################################################
-        ##  YOU MUST REMOVE THE REST OF THE CODE OF THIS FUNCTION
-        ##  AND CHANGE FOR YOUR OWN CODE
-        #######################################################
-        pass
+        if not hasattr(self, 'labels') or len(self.labels) == 0:
+            return 0.0
+
+            # Get the centroid for each point
+        assigned_centroids = self.centroids[self.labels]
+        # Calculate squared distances for all points
+        squared_distances = np.sum((self.X - assigned_centroids) ** 2, axis=1)
+        # Calculate and return the mean
+        self.WCD = np.mean(squared_distances)
+        return self.WCD
 
     def find_bestK(self, max_K):
         """
