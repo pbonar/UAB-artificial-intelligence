@@ -242,7 +242,7 @@ def distance(X, C):
 
 def get_colors(centroids):
     """
-    Assigns color labels to each centroid based on the closest match to basic colors.
+    Assigns color labels to centroids based on probability scores from get_color_prob.
 
     Args:
         centroids (numpy array): KxD array of centroid colors in RGB space
@@ -250,4 +250,11 @@ def get_colors(centroids):
     Returns:
         list: Color labels corresponding to each centroid
     """
-    pass
+    # Get probability scores for each centroid (Kx11 array)
+    color_probs = utils.get_color_prob(centroids)
+
+    # Find index of maximum probability for each centroid
+    color_indices = np.argmax(color_probs, axis=1)
+
+    # Return corresponding color names
+    return [utils.colors[idx] for idx in color_indices]
