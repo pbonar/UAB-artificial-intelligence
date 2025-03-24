@@ -1,4 +1,4 @@
-__authors__ = [1000000, 1000000]
+__authors__ = ["1000000", "1000000"]
 __group__ = 82
 
 import numpy as np
@@ -24,17 +24,16 @@ class KMeans:
     #############################################################
 
     def _init_X(self, X):
-        """Initialization of all pixels, sets X as an array of data in vector form (PxD)
-            Args:
-                X (list or np.array): list(matrix) of all pixel values
-                    if matrix has more than 2 dimensions, the dimensionality of the sample space is the length of
-                    the last dimension
         """
-        #######################################################
-        ##  YOU MUST REMOVE THE REST OF THE CODE OF THIS FUNCTION
-        ##  AND CHANGE FOR YOUR OWN CODE
-        #######################################################
-        self.X = np.random.rand(100, 5)
+        Ensures that X is a float-type matrix with dimensions N × D.
+        If the input is an image of dimensions F × C × 3, it reshapes it to (N × 3).
+        """
+        X = np.array(X, dtype=np.float32)  # (a) Ensure float type
+
+        if len(X.shape) > 2 and X.shape[-1] == 3:
+            X = X.reshape(-1, 3)
+
+        self.X = X
 
     def _init_options(self, options=None):
         """
