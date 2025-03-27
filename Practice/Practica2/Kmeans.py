@@ -17,7 +17,7 @@ class KMeans:
         self.num_iter = 0
         self.K = K
         self._init_X(X)
-        self._init_options(options)  # DICT options
+        self._init_options(options)
 
     #############################################################
     ##  THIS FUNCTION CAN BE MODIFIED FROM THIS POINT, if needed
@@ -28,7 +28,7 @@ class KMeans:
         Ensures that X is a float-type matrix with dimensions N × D.
         If the input is an image of dimensions F × C × 3, it reshapes it to (N × 3).
         """
-        X = np.array(X, dtype=np.float32)  # (a) Ensure float type
+        X = np.array(X, dtype=np.float32)
 
         if len(X.shape) > 2 and X.shape[-1] == 3:
             X = X.reshape(-1, 3)
@@ -52,14 +52,9 @@ class KMeans:
         if 'max_iter' not in options:
             options['max_iter'] = np.inf
         if 'fitting' not in options:
-            options['fitting'] = 'WCD'  # within class distance.
+            options['fitting'] = 'WCD'
 
-        # If your methods need any other parameter you can add it to the options dictionary
         self.options = options
-
-        #############################################################
-        ##  THIS FUNCTION CAN BE MODIFIED FROM THIS POINT, if needed
-        #############################################################
 
     def _init_centroids(self):
         """
@@ -68,14 +63,13 @@ class KMeans:
         - 'first': Uses the first K distinct points from X.
         - 'random': Selects K unique random points from X.
         """
-        self.old_centroids = np.zeros((self.K, self.X.shape[1]))  # Initialize old centroids
+        self.old_centroids = np.zeros((self.K, self.X.shape[1]))
 
         if self.options['km_init'].lower() == 'first':
-            # Select the first K distinct points
             seen = set()
             centroids = []
             for point in self.X:
-                tuple_point = tuple(point)  # Convert to tuple for uniqueness check
+                tuple_point = tuple(point)
                 if tuple_point not in seen:
                     seen.add(tuple_point)
                     centroids.append(point)
@@ -88,7 +82,6 @@ class KMeans:
             self.centroids = np.array(centroids, dtype=np.float32)
 
         elif self.options['km_init'].lower() == 'random':
-            # Select K unique random points as centroids
             indices = np.random.choice(self.X.shape[0], self.K, replace=False)
             self.centroids = self.X[indices].astype(np.float32)
 
@@ -141,29 +134,22 @@ class KMeans:
             b. Update centroids (get_centroids)
             c. Check convergence
         """
-        # Initialize centroids
         self._init_centroids()
         self.num_iter = 0
 
         while True:
-            # Assign each point to the nearest centroid
             self.get_labels()
 
-            # Update centroids based on current assignments
             self.get_centroids()
 
-            # Increment iteration counter
             self.num_iter += 1
 
-            # Check for convergence
             if self.converges():
                 break
 
-            # Optional: print progress if verbose mode is enabled
             if self.options['verbose'] and self.num_iter % 10 == 0:
                 print(f"Iteration {self.num_iter}, Current WCD: {self.withinClassDistance()}")
 
-        # Final WCD calculation
         self.withinClassDistance()
 
         if self.options['verbose']:
@@ -179,12 +165,12 @@ class KMeans:
         if not hasattr(self, 'labels') or len(self.labels) == 0:
             return 0.0
 
-            # Get the centroid for each point
         assigned_centroids = self.centroids[self.labels]
-        # Calculate squared distances for all points
+
         squared_distances = np.sum((self.X - assigned_centroids) ** 2, axis=1)
-        # Calculate and return the mean
+
         self.WCD = np.mean(squared_distances)
+
         return self.WCD
 
     def find_bestK(self, max_K, threshold=20):
@@ -205,7 +191,7 @@ class KMeans:
 
         original_K = self.K
         wcd_values = []
-        best_k = max_K  # Default to max_K if no better k is found
+        best_k = max_K
 
         for k in range(2, max_K + 1):
             self.K = k
@@ -213,18 +199,16 @@ class KMeans:
             current_wcd = self.withinClassDistance()
             wcd_values.append(current_wcd)
 
-            # Start checking improvements from K=3 onward
             if k >= 3:
-                # Calculate percentage improvement
                 improvement = 100 * (wcd_values[-2] - wcd_values[-1]) / wcd_values[-2]
 
-                # If improvement drops below threshold, select previous K
                 if improvement < threshold:
                     best_k = k - 1
                     break
 
-        self.K = best_k  # Update to best found K
+        self.K = best_k
         return best_k
+
 def distance(X, C):
     """
     Calculates the distance between each pixel and each centroid
@@ -250,11 +234,8 @@ def get_colors(centroids):
     Returns:
         list: Color labels corresponding to each centroid
     """
-    # Get probability scores for each centroid (Kx11 array)
     color_probs = utils.get_color_prob(centroids)
 
-    # Find index of maximum probability for each centroid
     color_indices = np.argmax(color_probs, axis=1)
 
-    # Return corresponding color names
     return [utils.colors[idx] for idx in color_indices]
