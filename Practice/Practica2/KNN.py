@@ -1,5 +1,5 @@
-__authors__ = [0000000, 0000000]
-__group__ = 82
+__authors__ = 'TO_BE_FILLED'
+__group__ = 'TO_BE_FILLED'
 
 import numpy as np
 import math
@@ -17,41 +17,78 @@ class KNN:
 
     def _init_train(self, train_data):
         """
-        initializes the train data
-        :param train_data: PxMxNx3 matrix corresponding to P color images
-        :return: assigns the train set to the matrix self.train_data shaped as PxD (P points in a D dimensional space)
+        Initializes the training data:
+        - Converts to float32
+        - Reshapes images to vectors of size 4800 (80x60)
+    
+        Args:
+            train_data: PxMxNx3 matrix (P color images of size MxN)
+    
+        Result:
+            self.train_data: Px4800 matrix (P images, each as a flat vector)
         """
-        #######################################################
-        ##  YOU MUST REMOVE THE REST OF THE CODE OF THIS FUNCTION
-        ##  AND CHANGE FOR YOUR OWN CODE
-        #######################################################
-        self.train_data = np.random.randint(8, size=[10, 4800])
+        train_data = np.array(train_data, dtype=np.float32)  # Ensure float type
+
+        if train_data.ndim == 4 and train_data.shape[-1] == 3:
+            # Convert RGB to grayscale by averaging over channels
+            train_data = np.mean(train_data, axis=-1)  # Now shape is P x M x N
+
+        P, M, N = train_data.shape  # Get dimensions
+        self.train_data = train_data.reshape(P, M * N)  # Flatten each image to 1D
 
     def get_k_neighbours(self, test_data, k):
         """
-        given a test_data matrix calculates de k nearest neighbours at each point (row) of test_data on self.neighbors
-        :param test_data: array that has to be shaped to a NxD matrix (N points in a D dimensional space)
-        :param k: the number of neighbors to look at
-        :return: the matrix self.neighbors is created (NxK)
-                 the ij-th entry is the j-th nearest train point to the i-th test point
+        Given a test_data matrix, calculates the k nearest neighbours of each point.
+    
+        Args:
+            test_data (array): Test data of shape NxMxNx3 (N images)
+            k (int): Number of neighbors to retrieve
+    
+        Result:
+            self.neighbors: NxK matrix. Each row contains the labels of the k nearest training samples.
         """
-        #######################################################
-        ##  YOU MUST REMOVE THE REST OF THE CODE OF THIS FUNCTION
-        ##  AND CHANGE FOR YOUR OWN CODE
-        #######################################################
-        self.neighbors = np.random.randint(k, size=[test_data.shape[0], k])
+        # Step 1: Ensure float32 and convert RGB to grayscale (like in _init_train)
+        est_data = np.array(test_data, dtype=np.float32)
+
+        if test_data.ndim == 4 and test_data.shape[-1] == 3:
+            test_data = np.mean(test_data, axis=-1)  # RGB to grayscale
+
+        # Step 2: Flatten each test image to 1D vector
+        N, M, P = test_data.shape  # N test images of size MxP
+        test_data_flat = test_data.reshape(N, M * P)
+
+        # Step 3: Compute distances between each test image and all training images
+        distances = cdist(test_data_flat, self.train_data, metric='euclidean')  # Shape: N x num_train_samples
+
+        # Step 4: Get the indices of the k smallest distances for each test image
+        nearest_indices = np.argsort(distances, axis=1)[:, :k]  # Shape: N x K
+
+        # Step 5: Store the corresponding labels
+        self.neighbors = self.labels[nearest_indices]  # Shape: N x K
 
     def get_class(self):
         """
-        Get the class by maximum voting
-        :return: 1 array of Nx1 elements. For each of the rows in self.neighbors gets the most voted value
-                (i.e. the class at which that row belongs)
+        Get the predicted class for each test sample by majority voting (without using scipy.stats.mode).
+
+        Returns:
+            predicted_classes (np.ndarray): Array of shape (N,) with the predicted class per test sample.
         """
-        #######################################################
-        ##  YOU MUST REMOVE THE REST OF THE CODE OF THIS FUNCTION
-        ##  AND CHANGE FOR YOUR OWN CODE
-        #######################################################
-        return np.random.randint(10, size=self.neighbors.size), np.random.random(self.neighbors.size)
+        predicted_classes = []
+
+        for row in self.neighbors:
+            # Count occurrences of each class label in the row
+            label_counts = {}
+            for label in row:
+                if label in label_counts:
+                    label_counts[label] += 1
+                else:
+                    label_counts[label] = 1
+
+            # Get label with highest count (i.e. majority vote)
+            majority_label = max(label_counts.items(), key=operator.itemgetter(1))[0]
+            predicted_classes.append(majority_label)
+
+        return np.array(predicted_classes)
 
     def predict(self, test_data, k):
         """
