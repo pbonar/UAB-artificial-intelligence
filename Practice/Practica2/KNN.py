@@ -4,6 +4,7 @@ __group__ = 'TO_BE_FILLED'
 import numpy as np
 import math
 import operator
+import pickle
 from scipy.spatial.distance import cdist
 
 
@@ -100,3 +101,85 @@ class KNN:
 
         self.get_k_neighbours(test_data, k)
         return self.get_class()
+
+
+# import numpy as np
+# import cv2
+# import os
+# import json
+# from sklearn.neighbors import KNeighborsClassifier
+
+
+# def read_dataset(root_folder, gt_json, with_color=False):
+#     with open(gt_json, 'r') as f:
+#         data = json.load(f)
+
+#     # Load training images in grayscale
+#     train_images = []
+#     train_labels = []
+
+#     for image_id, (label, colors) in data['train'].items():
+#         image_path = os.path.join(root_folder, f"{image_id}.jpg")
+#         image = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)  # Load image as grayscale
+#         if image is not None:
+#             image = cv2.resize(image, (80, 60))  # Resize image if needed
+#             train_images.append(image.flatten())  # Flatten to 1D array
+#             train_labels.append(label)
+#         else:
+#             print(f"Warning: Couldn't load image {image_id}. Skipping...")
+
+#     # Convert lists to numpy arrays
+#     if len(train_images) > 0:
+#         train_images = np.array(train_images)
+#         train_labels = np.array(train_labels)
+#     else:
+#         train_images, train_labels = None, None
+
+#     # Test images
+#     test_images = []
+#     for image_id in data['test']:
+#         image_path = os.path.join(root_folder, f"{image_id}.jpg")
+#         image = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
+#         if image is not None:
+#             image = cv2.resize(image, (80, 60))
+#             test_images.append(image.flatten())  # Flatten to 1D array
+#         else:
+#             print(f"Warning: Couldn't load test image {image_id}. Skipping...")
+
+#     test_images = np.array(test_images)
+
+#     return train_images, train_labels, test_images
+
+
+# def knn_predict(train_images, train_labels, test_images, K=2):
+#     # Initialize the KNN classifier
+#     knn = KNeighborsClassifier(n_neighbors=K)
+
+#     # Train the KNN model
+#     knn.fit(train_images, train_labels)
+
+#     # Predict the label of the first test image
+#     predicted_label = knn.predict(test_images[0].reshape(1, -1))
+#     return predicted_label[0]
+
+
+# def main():
+#     root_folder = './images/train'
+#     gt_json = './images/gt.json'
+
+#     # Load the dataset
+#     train_images, train_labels, test_images = read_dataset(root_folder, gt_json, with_color=False)
+
+#     if train_images is None or train_labels is None or test_images is None:
+#         print("Error loading dataset. Exiting.")
+#         return
+
+#     # Predict the label for the first test image with K=2
+#     predicted_label = knn_predict(train_images, train_labels, test_images, K=2)
+
+#     # Print the predicted label for the first test image
+#     print("Predicted label for the first test image:", predicted_label)
+
+
+# if __name__ == '__main__':
+#     main()
