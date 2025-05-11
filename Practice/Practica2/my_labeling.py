@@ -120,11 +120,11 @@ def kmean_statistics(kmeans_class, images, kmax):
     - times: list of fit durations per K (seconds)
     """
     # Sample data if it's too large (reduces computation time)
-    if images.shape[0] > 100000:
-        np.random.seed(42)  # For reproducibility
-        idx = np.random.choice(images.shape[0], 10000, replace=False)
-        print(f"Sampling 10,000 points from {len(images)} for faster computation")
-        images = images[idx]
+    # if images.shape[0] > 100000:
+    #     np.random.seed(42)  # For reproducibility
+    #     idx = np.random.choice(images.shape[0], 10000, replace=False)
+    #     print(f"Sampling 10,000 points from {len(images)} for faster computation")
+    #     images = images[idx]
     
     ks = list(range(2, kmax + 1))
     wcds, iters, times = [], [], []
@@ -315,10 +315,10 @@ if __name__ == '__main__':
 
     print('Read the dataset')
 
-    # --- Metrics ---
-    print("Running K-means diagnostics for K = 2…kmax (this can take a while)")
-    all_train_pixels = np.vstack([img.reshape(-1, 3) for img in train_imgs])
-    ks, wcds, its, times = kmean_statistics(KMeans, all_train_pixels, kmax=4)
+    # # --- Metrics ---
+    # print("Running K-means diagnostics for K = 2…kmax (this can take a while)")
+    # all_train_pixels = np.vstack([img.reshape(-1, 3) for img in train_imgs])
+    # ks, wcds, its, times = kmean_statistics(KMeans, all_train_pixels, kmax=6)
 
     print("Starting color-tag prediction on test set")
     pred_test_color = []
@@ -330,61 +330,61 @@ if __name__ == '__main__':
         labels = get_colors(cent_cols)
         pred_test_color.append(set(labels))
 
-    color_acc, color_stats = get_color_accuracy(pred_test_color, test_color_labels, verbose=False)
+    color_acc, color_stats = get_color_accuracy(pred_test_color, test_color_labels, verbose=True)
     print(f"Test‐set color accuracy: {color_acc:.1f}%")
 
-    print("Starting shape classification on test set")
-    knn = KNN(train_imgs, train_class_labels)
-    pred_test_shape = knn.predict(test_imgs, k=3)
-    shape_acc = get_shape_accuracy(pred_test_shape, test_class_labels)
-    print(f"Test‐set shape accuracy: {shape_acc:.1f}%")
+    # print("Starting shape classification on test set")
+    # knn = KNN(train_imgs, train_class_labels)
+    # pred_test_shape = knn.predict(test_imgs, k=3)
+    # shape_acc = get_shape_accuracy(pred_test_shape, test_class_labels)
+    # print(f"Test‐set shape accuracy: {shape_acc:.1f}%")
 
-    print("Searching for test images containing 'Red' and 'Blue' colors...")
-    results_color = retrieve_by_color(test_imgs, pred_test_color, ['Red', 'Blue'])
-    print(f"Found {len(results_color)} images matching color query.")
-    for i, (img, tags) in enumerate(zip(test_imgs, pred_test_color)):
-        if all(c in tags for c in ['Red', 'Blue']):
-            print(f"  - Matching file: test_{i}.jpg with tags: {tags}")
+    # print("Searching for test images containing 'Red' and 'Blue' colors...")
+    # results_color = retrieve_by_color(test_imgs, pred_test_color, ['Red', 'Blue'])
+    # print(f"Found {len(results_color)} images matching color query.")
+    # for i, (img, tags) in enumerate(zip(test_imgs, pred_test_color)):
+    #     if all(c in tags for c in ['Red', 'Blue']):
+    #         print(f"  - Matching file: test_{i}.jpg with tags: {tags}")
 
-    print("Searching for test images predicted as 'Jeans'...")
-    results_shape = retrieve_by_shape(test_imgs, pred_test_shape, 'Jeans')
-    print(f"Found {len(results_shape)} images matching shape query.")
-    for i, tag in enumerate(pred_test_shape):
-        if tag == 'Jeans':
-            print(f"  - Matching file: test_{i}.jpg with shape: {tag}")
+    # print("Searching for test images predicted as 'Jeans'...")
+    # results_shape = retrieve_by_shape(test_imgs, pred_test_shape, 'Jeans')
+    # print(f"Found {len(results_shape)} images matching shape query.")
+    # for i, tag in enumerate(pred_test_shape):
+    #     if tag == 'Jeans':
+    #         print(f"  - Matching file: test_{i}.jpg with shape: {tag}")
 
-    print("Searching for 'Blue Jeans' images...")
-    results_combined = retrieve_combined(test_imgs, pred_test_shape, pred_test_color, 'Jeans', 'Blue')
-    print(f"Found {len(results_combined)} images matching combined query.")
-    for i, (tag, colors) in enumerate(zip(pred_test_shape, pred_test_color)):
-        if tag == 'Jeans' and 'Blue' in colors:
-            print(f"  - Matching file: test_{i}.jpg with shape: {tag} and colors: {colors}")
+    # print("Searching for 'Blue Jeans' images...")
+    # results_combined = retrieve_combined(test_imgs, pred_test_shape, pred_test_color, 'Jeans', 'Blue')
+    # print(f"Found {len(results_combined)} images matching combined query.")
+    # for i, (tag, colors) in enumerate(zip(pred_test_shape, pred_test_color)):
+    #     if tag == 'Jeans' and 'Blue' in colors:
+    #         print(f"  - Matching file: test_{i}.jpg with shape: {tag} and colors: {colors}")
 
-    if results_combined:
-        print("Displaying all 'Blue Jeans' results in a grid...")
-        max_width_in = 16  # max width of figure in inches
-        img_width = 3  # individual image width in inches
-        cols = max(1, min(5, max_width_in // img_width))
-        rows = math.ceil(len(results_combined) / cols)
+    # if results_combined:
+    #     print("Displaying all 'Blue Jeans' results in a grid...")
+    #     max_width_in = 16  # max width of figure in inches
+    #     img_width = 3  # individual image width in inches
+    #     cols = max(1, min(5, max_width_in // img_width))
+    #     rows = math.ceil(len(results_combined) / cols)
 
-        fig, axes = plt.subplots(rows, cols, figsize=(img_width * cols, 3 * rows))
-        axes = axes.flatten() if isinstance(axes, np.ndarray) else [axes]
+    #     fig, axes = plt.subplots(rows, cols, figsize=(img_width * cols, 3 * rows))
+    #     axes = axes.flatten() if isinstance(axes, np.ndarray) else [axes]
 
-        for ax in axes[len(results_combined):]:
-            ax.axis('off')
+    #     for ax in axes[len(results_combined):]:
+    #         ax.axis('off')
 
-        for idx, (img, ax) in enumerate(zip(results_combined, axes)):
-            ax.imshow(img.astype(np.uint8))
-            ax.set_title(f"Image {idx}")
-            ax.axis('off')
+    #     for idx, (img, ax) in enumerate(zip(results_combined, axes)):
+    #         ax.imshow(img.astype(np.uint8))
+    #         ax.set_title(f"Image {idx}")
+    #         ax.axis('off')
 
-        plt.tight_layout()
-        mng = plt.get_current_fig_manager()
-        try:
-            mng.window.state('zoomed')  # Maximize window on Windows
-        except:
-            try:
-                mng.resize(*mng.window.maxsize())  # Resize to max on Linux/macOS
-            except:
-                pass
-        plt.show()
+    #     plt.tight_layout()
+    #     mng = plt.get_current_fig_manager()
+    #     try:
+    #         mng.window.state('zoomed')  # Maximize window on Windows
+    #     except:
+    #         try:
+    #             mng.resize(*mng.window.maxsize())  # Resize to max on Linux/macOS
+    #         except:
+    #             pass
+    #     plt.show()

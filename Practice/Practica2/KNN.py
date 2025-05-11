@@ -13,7 +13,7 @@ class KNN:
         self._init_train(train_data)
         self.labels = np.array(labels)
         #############################################################
-        ##  THIS FUNCTION CAN BE MODIFIED FROM THIS POINT, if needed
+        # THIS FUNCTION CAN BE MODIFIED FROM THIS POINT, if needed
         #############################################################
 
     def _init_train(self, train_data):
@@ -21,35 +21,37 @@ class KNN:
         Initializes the training data:
         - Converts to float32
         - Reshapes images to vectors of size 4800 (80x60)
-    
+
         Args:
             train_data: PxMxNx3 matrix (P color images of size MxN)
-    
+
         Result:
             self.train_data: Px4800 matrix (P images, each as a flat vector)
         """
-        train_data = np.array(train_data, dtype=np.float32)  # Ensure float type
+        train_data = np.array(
+            train_data, dtype=np.float32)  # Ensure float type
 
         if train_data.ndim == 4 and train_data.shape[-1] == 3:
             # Convert RGB to grayscale by averaging over channels
             train_data = np.mean(train_data, axis=-1)  # Now shape is P x M x N
 
         P, M, N = train_data.shape  # Get dimensions
-        self.train_data = train_data.reshape(P, M * N)  # Flatten each image to 1D
+        self.train_data = train_data.reshape(
+            P, M * N)  # Flatten each image to 1D
 
     def get_k_neighbours(self, test_data, k):
         """
         Given a test_data matrix, calculates the k nearest neighbours of each point.
-    
+
         Args:
             test_data (array): Test data of shape NxMxNx3 (N images)
             k (int): Number of neighbors to retrieve
-    
+
         Result:
             self.neighbors: NxK matrix. Each row contains the labels of the k nearest training samples.
         """
         # Step 1: Ensure float32 and convert RGB to grayscale (like in _init_train)
-        est_data = np.array(test_data, dtype=np.float32)
+        test_data = np.array(test_data, dtype=np.float32)
 
         if test_data.ndim == 4 and test_data.shape[-1] == 3:
             test_data = np.mean(test_data, axis=-1)  # RGB to grayscale
@@ -59,7 +61,8 @@ class KNN:
         test_data_flat = test_data.reshape(N, M * P)
 
         # Step 3: Compute distances between each test image and all training images
-        distances = cdist(test_data_flat, self.train_data, metric='euclidean')  # Shape: N x num_train_samples
+        distances = cdist(test_data_flat, self.train_data,
+                          metric='euclidean')  # Shape: N x num_train_samples
 
         # Step 4: Get the indices of the k smallest distances for each test image
         nearest_indices = np.argsort(distances, axis=1)[:, :k]  # Shape: N x K
@@ -86,7 +89,8 @@ class KNN:
                     label_counts[label] = 1
 
             # Get label with highest count (i.e. majority vote)
-            majority_label = max(label_counts.items(), key=operator.itemgetter(1))[0]
+            majority_label = max(label_counts.items(),
+                                 key=operator.itemgetter(1))[0]
             predicted_classes.append(majority_label)
 
         return np.array(predicted_classes)
@@ -103,83 +107,53 @@ class KNN:
         return self.get_class()
 
 
-# import numpy as np
-# import cv2
-# import os
-# import json
-# from sklearn.neighbors import KNeighborsClassifier
+def load():
+    with open('./test/test_cases_knn.pkl', 'rb') as f:
+        test_cases = pickle.load(f)
+    return test_cases
+
+def test_init_train():
+    with open('./test/test_cases_knn.pkl', 'rb') as f:
+        test_cases = pickle.load(f)
+    for ix, (train_imgs, train_labels) in enumerate(test_cases['input']):
+        knn = KNN(train_imgs, train_labels)
+        # print(len(knn.train_data))
+        # print(knn.train_data.shape)
+        # print(knn.train_data.size)
+        knn.get_k_neighbours(test_cases['test_input'][ix][0], 2)
+        print('test')
+
+# test_init_train()
+
+with open('./test/test_cases_knn.pkl', 'rb') as f:
+    test_cases = pickle.load(f)
+
+# Load dataset in grayscale
+data = read_dataset(root_folder='./images/', gt_json='./images/gt.json', with_color=False)
+
+for ix, (train_imgs, train_labels) in enumerate(test_cases['input']):
+    knn = KNN(train_imgs, train_labels)
+    knn.get_k_neighbours(
+    test_cases['test_input'][ix][0], test_cases['rnd_K'][ix])
+    preds = knn.get_class()
+
+    test_img = read_one_img('./imatge2.png',80,60,False)           # the test image to classify
+    # predicted_label = knn.predict(preds, 5)
+
+    # print(predicted_label)
+    predicted_label = knn.predict(np.expand_dims(test_img, axis=0), 5)
+    print(predicted_label)
 
 
-# def read_dataset(root_folder, gt_json, with_color=False):
-#     with open(gt_json, 'r') as f:
-#         data = json.load(f)
+# # Assume the dataset has the following structure:
+# train_imgs = data['train_imgs']       # all training images (in grayscale)
+# train_labels = data['train_labels']   # labels associated with the training images
+# test_img = read_one_img('./Imatge1.png',80,60,False)           # the test image to classify
 
-#     # Load training images in grayscale
-#     train_images = []
-#     train_labels = []
+# # Initialize the classifier using all training images and labels
+# knn = KNN(train_imgs, train_labels)
 
-#     for image_id, (label, colors) in data['train'].items():
-#         image_path = os.path.join(root_folder, f"{image_id}.jpg")
-#         image = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)  # Load image as grayscale
-#         if image is not None:
-#             image = cv2.resize(image, (80, 60))  # Resize image if needed
-#             train_images.append(image.flatten())  # Flatten to 1D array
-#             train_labels.append(label)
-#         else:
-#             print(f"Warning: Couldn't load image {image_id}. Skipping...")
-
-#     # Convert lists to numpy arrays
-#     if len(train_images) > 0:
-#         train_images = np.array(train_images)
-#         train_labels = np.array(train_labels)
-#     else:
-#         train_images, train_labels = None, None
-
-#     # Test images
-#     test_images = []
-#     for image_id in data['test']:
-#         image_path = os.path.join(root_folder, f"{image_id}.jpg")
-#         image = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
-#         if image is not None:
-#             image = cv2.resize(image, (80, 60))
-#             test_images.append(image.flatten())  # Flatten to 1D array
-#         else:
-#             print(f"Warning: Couldn't load test image {image_id}. Skipping...")
-
-#     test_images = np.array(test_images)
-
-#     return train_images, train_labels, test_images
-
-
-# def knn_predict(train_images, train_labels, test_images, K=2):
-#     # Initialize the KNN classifier
-#     knn = KNeighborsClassifier(n_neighbors=K)
-
-#     # Train the KNN model
-#     knn.fit(train_images, train_labels)
-
-#     # Predict the label of the first test image
-#     predicted_label = knn.predict(test_images[0].reshape(1, -1))
-#     return predicted_label[0]
-
-
-# def main():
-#     root_folder = './images/train'
-#     gt_json = './images/gt.json'
-
-#     # Load the dataset
-#     train_images, train_labels, test_images = read_dataset(root_folder, gt_json, with_color=False)
-
-#     if train_images is None or train_labels is None or test_images is None:
-#         print("Error loading dataset. Exiting.")
-#         return
-
-#     # Predict the label for the first test image with K=2
-#     predicted_label = knn_predict(train_images, train_labels, test_images, K=2)
-
-#     # Print the predicted label for the first test image
-#     print("Predicted label for the first test image:", predicted_label)
-
-
-# if __name__ == '__main__':
-#     main()
+# # Predict the label for the test image using K=5.
+# # Note: The predict method expects a batch of test images. If test_img is a single image, add a batch dimension.
+# predicted_label = knn.predict(np.expand_dims(test_img, axis=0), 5)
+# print(predicted_label)
