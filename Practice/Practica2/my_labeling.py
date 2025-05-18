@@ -300,6 +300,68 @@ def get_color_accuracy(pred_tag_sets, true_tag_sets, verbose=True):
     return avg_accuracy, color_stats
 
 
+def plot_color_confusion_matrix(pred_tag_sets, true_tag_sets):
+    """
+    Creates and displays a confusion matrix for color classification.
+    
+    Parameters:
+    - pred_tag_sets: list of sets containing predicted colors for each image
+    - true_tag_sets: list of sets containing true colors for each image
+    """
+    # Get all unique colors
+    all_colors = set()
+    for true in true_tag_sets:
+        all_colors.update(true)
+    for pred in pred_tag_sets:
+        all_colors.update(pred)
+    
+    all_colors = sorted(all_colors)
+    n_colors = len(all_colors)
+    
+    color_to_idx = {color: i for i, color in enumerate(all_colors)}
+    
+    confusion_matrix = np.zeros((n_colors, n_colors), dtype=int)
+    
+    for true_set, pred_set in zip(true_tag_sets, pred_tag_sets):
+        for true_color in true_set:
+            true_idx = color_to_idx[true_color]
+            
+            if true_color in pred_set:
+                confusion_matrix[true_idx, true_idx] += 1
+                
+            # For colors that were missed (false negatives)
+            for pred_color in pred_set:
+                if pred_color != true_color:
+                    pred_idx = color_to_idx[pred_color]
+                    confusion_matrix[true_idx, pred_idx] += 1
+    
+    plt.figure(figsize=(10, 8))
+    
+    cmap = plt.cm.Blues
+    
+    plt.imshow(confusion_matrix, interpolation='nearest', cmap=cmap)
+    plt.title('Color Confusion Matrix')
+    plt.colorbar()
+    
+    tick_marks = np.arange(n_colors)
+    plt.xticks(tick_marks, all_colors, rotation=45, ha='right')
+    plt.yticks(tick_marks, all_colors)
+    
+    thresh = confusion_matrix.max() / 2.0
+    for i in range(n_colors):
+        for j in range(n_colors):
+            plt.text(j, i, confusion_matrix[i, j],
+                     ha="center", va="center", 
+                     color="white" if confusion_matrix[i, j] > thresh else "black")
+    
+    plt.tight_layout()
+    plt.ylabel('True Color')
+    plt.xlabel('Predicted Color')
+    plt.show()
+    
+    return confusion_matrix
+
+
 if __name__ == '__main__':
 
     # Load all the images and GT
@@ -320,7 +382,7 @@ if __name__ == '__main__':
     # all_train_pixels = np.vstack([img.reshape(-1, 3) for img in train_imgs])
     # ks, wcds, its, times = kmean_statistics(KMeans, all_train_pixels, kmax=6)
 
-    print("Starting color-tag prediction on test set")
+    # print("Starting color-tag prediction on test set")
     pred_test_color = []
     for img in test_imgs:
         pix = img.reshape(-1, 3)
@@ -330,61 +392,65 @@ if __name__ == '__main__':
         labels = get_colors(cent_cols)
         pred_test_color.append(set(labels))
 
+    # After generating predictions
     color_acc, color_stats = get_color_accuracy(pred_test_color, test_color_labels, verbose=True)
     print(f"Test‐set color accuracy: {color_acc:.1f}%")
 
-    # print("Starting shape classification on test set")
-    # knn = KNN(train_imgs, train_class_labels)
-    # pred_test_shape = knn.predict(test_imgs, k=3)
-    # shape_acc = get_shape_accuracy(pred_test_shape, test_class_labels)
-    # print(f"Test‐set shape accuracy: {shape_acc:.1f}%")
+    # Now plot the confusion matrix
+    conf_matrix = plot_color_confusion_matrix(pred_test_color, test_color_labels)
 
-    # print("Searching for test images containing 'Red' and 'Blue' colors...")
-    # results_color = retrieve_by_color(test_imgs, pred_test_color, ['Red', 'Blue'])
-    # print(f"Found {len(results_color)} images matching color query.")
-    # for i, (img, tags) in enumerate(zip(test_imgs, pred_test_color)):
-    #     if all(c in tags for c in ['Red', 'Blue']):
-    #         print(f"  - Matching file: test_{i}.jpg with tags: {tags}")
+    print("Starting shape classification on test set")
+    knn = KNN(train_imgs, train_class_labels)
+    pred_test_shape = knn.predict(test_imgs, k=3)
+    shape_acc = get_shape_accuracy(pred_test_shape, test_class_labels)
+    print(f"Test‐set shape accuracy: {shape_acc:.1f}%")
 
-    # print("Searching for test images predicted as 'Jeans'...")
-    # results_shape = retrieve_by_shape(test_imgs, pred_test_shape, 'Jeans')
-    # print(f"Found {len(results_shape)} images matching shape query.")
-    # for i, tag in enumerate(pred_test_shape):
-    #     if tag == 'Jeans':
-    #         print(f"  - Matching file: test_{i}.jpg with shape: {tag}")
+    print("Searching for test images containing 'Red' and 'Blue' colors...")
+    results_color = retrieve_by_color(test_imgs, pred_test_color, ['Red', 'Blue'])
+    print(f"Found {len(results_color)} images matching color query.")
+    for i, (img, tags) in enumerate(zip(test_imgs, pred_test_color)):
+        if all(c in tags for c in ['Red', 'Blue']):
+            print(f"  - Matching file: test_{i}.jpg with tags: {tags}")
 
-    # print("Searching for 'Blue Jeans' images...")
-    # results_combined = retrieve_combined(test_imgs, pred_test_shape, pred_test_color, 'Jeans', 'Blue')
-    # print(f"Found {len(results_combined)} images matching combined query.")
-    # for i, (tag, colors) in enumerate(zip(pred_test_shape, pred_test_color)):
-    #     if tag == 'Jeans' and 'Blue' in colors:
-    #         print(f"  - Matching file: test_{i}.jpg with shape: {tag} and colors: {colors}")
+    print("Searching for test images predicted as 'Jeans'...")
+    results_shape = retrieve_by_shape(test_imgs, pred_test_shape, 'Jeans')
+    print(f"Found {len(results_shape)} images matching shape query.")
+    for i, tag in enumerate(pred_test_shape):
+        if tag == 'Jeans':
+            print(f"  - Matching file: test_{i}.jpg with shape: {tag}")
 
-    # if results_combined:
-    #     print("Displaying all 'Blue Jeans' results in a grid...")
-    #     max_width_in = 16  # max width of figure in inches
-    #     img_width = 3  # individual image width in inches
-    #     cols = max(1, min(5, max_width_in // img_width))
-    #     rows = math.ceil(len(results_combined) / cols)
+    print("Searching for 'Blue Jeans' images...")
+    results_combined = retrieve_combined(test_imgs, pred_test_shape, pred_test_color, 'Jeans', 'Blue')
+    print(f"Found {len(results_combined)} images matching combined query.")
+    for i, (tag, colors) in enumerate(zip(pred_test_shape, pred_test_color)):
+        if tag == 'Jeans' and 'Blue' in colors:
+            print(f"  - Matching file: test_{i}.jpg with shape: {tag} and colors: {colors}")
 
-    #     fig, axes = plt.subplots(rows, cols, figsize=(img_width * cols, 3 * rows))
-    #     axes = axes.flatten() if isinstance(axes, np.ndarray) else [axes]
+    if results_combined:
+        print("Displaying all 'Blue Jeans' results in a grid...")
+        max_width_in = 16  # max width of figure in inches
+        img_width = 3  # individual image width in inches
+        cols = max(1, min(5, max_width_in // img_width))
+        rows = math.ceil(len(results_combined) / cols)
 
-    #     for ax in axes[len(results_combined):]:
-    #         ax.axis('off')
+        fig, axes = plt.subplots(rows, cols, figsize=(img_width * cols, 3 * rows))
+        axes = axes.flatten() if isinstance(axes, np.ndarray) else [axes]
 
-    #     for idx, (img, ax) in enumerate(zip(results_combined, axes)):
-    #         ax.imshow(img.astype(np.uint8))
-    #         ax.set_title(f"Image {idx}")
-    #         ax.axis('off')
+        for ax in axes[len(results_combined):]:
+            ax.axis('off')
 
-    #     plt.tight_layout()
-    #     mng = plt.get_current_fig_manager()
-    #     try:
-    #         mng.window.state('zoomed')  # Maximize window on Windows
-    #     except:
-    #         try:
-    #             mng.resize(*mng.window.maxsize())  # Resize to max on Linux/macOS
-    #         except:
-    #             pass
-    #     plt.show()
+        for idx, (img, ax) in enumerate(zip(results_combined, axes)):
+            ax.imshow(img.astype(np.uint8))
+            ax.set_title(f"Image {idx}")
+            ax.axis('off')
+
+        plt.tight_layout()
+        mng = plt.get_current_fig_manager()
+        try:
+            mng.window.state('zoomed')  # Maximize window on Windows
+        except:
+            try:
+                mng.resize(*mng.window.maxsize())  # Resize to max on Linux/macOS
+            except:
+                pass
+        plt.show()
