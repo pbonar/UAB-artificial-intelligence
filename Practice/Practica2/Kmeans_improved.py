@@ -179,7 +179,7 @@ class KMeans:
         if not hasattr(self, 'labels') or len(self.labels) == 0:
             return 0.0
 
-            # Get the centroid for each point
+        # Get the centroid for each point
         assigned_centroids = self.centroids[self.labels]
         # Calculate squared distances for all points
         squared_distances = np.sum((self.X - assigned_centroids) ** 2, axis=1)

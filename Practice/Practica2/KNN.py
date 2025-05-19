@@ -5,156 +5,195 @@ from utils_data import read_dataset, read_extended_dataset, crop_images
 import numpy as np
 import math
 import operator
-import pickle
 from scipy.spatial.distance import cdist
 
 
 class KNN:
-    def __init__(self, train_data, labels):
-        self._init_train(train_data)
-        self.labels = np.array(labels)
-        #############################################################
-        # THIS FUNCTION CAN BE MODIFIED FROM THIS POINT, if needed
-        #############################################################
-
-    def _init_train(self, train_data):
+    def __init__(self, train_data, labels, distance_metric='euclidean', normalize=False):
         """
-        Initializes the training data:
-        - Converts to float32
-        - Reshapes images to vectors of size 4800 (80x60)
+        Initialize KNN classifier.
 
         Args:
-            train_data: PxMxNx3 matrix (P color images of size MxN)
-
-        Result:
-            self.train_data: Px4800 matrix (P images, each as a flat vector)
+            train_data: Training data (PxMxNx3 matrix for color images)
+            labels: Array of labels for training data
+            distance_metric: Distance metric ('euclidean', 'manhattan', 'cosine', 'chebyshev')
+            normalize: Whether to normalize the data (default: False)
         """
-        train_data = np.array(
-            train_data, dtype=np.float32)  # Ensure float type
+        self._init_train(train_data, normalize)
+        self.labels = np.array(labels)
+        self.valid_metrics = ['euclidean', 'manhattan', 'cosine', 'chebyshev']
+        if distance_metric not in self.valid_metrics:
+            raise ValueError(f"Invalid distance metric. Choose from {self.valid_metrics}")
+        self.distance_metric = distance_metric
+        self.normalize = normalize
 
+    def _init_train(self, train_data, normalize):
+        """
+        Initialize and preprocess training data.
+
+        Args:
+            train_data: Training data (PxMxNx3 matrix for color images)
+            normalize: Whether to normalize the data
+        """
+        train_data = np.array(train_data, dtype=np.float32)
+
+        # Convert RGB to grayscale if needed
         if train_data.ndim == 4 and train_data.shape[-1] == 3:
-            # Convert RGB to grayscale by averaging over channels
-            train_data = np.mean(train_data, axis=-1)  # Now shape is P x M x N
+            train_data = np.mean(train_data, axis=-1)
 
-        P, M, N = train_data.shape  # Get dimensions
-        self.train_data = train_data.reshape(
-            P, M * N)  # Flatten each image to 1D
+        # Flatten images
+        P, M, N = train_data.shape
+        self.train_data = train_data.reshape(P, M * N)
+
+        # Store original shape for test data reshaping
+        self.original_shape = (M, N)
+
+        # Normalize if requested
+        if normalize:
+            self.mean = np.mean(self.train_data, axis=0)
+            self.std = np.std(self.train_data, axis=0)
+            self.train_data = (self.train_data - self.mean) / (self.std + 1e-8)  # Add epsilon to avoid division by zero
 
     def get_k_neighbours(self, test_data, k):
         """
-        Given a test_data matrix, calculates the k nearest neighbours of each point.
+        Find k nearest neighbors for test data.
 
         Args:
-            test_data (array): Test data of shape NxMxNx3 (N images)
-            k (int): Number of neighbors to retrieve
+            test_data: Test data (NxMxNx3 matrix for color images)
+            k: Number of neighbors to find
 
-        Result:
-            self.neighbors: NxK matrix. Each row contains the labels of the k nearest training samples.
+        Sets:
+            self.neighbors: Labels of k nearest neighbors (NxK matrix)
+            self.distances: Distances to k nearest neighbors (NxK matrix)
         """
-        # Step 1: Ensure float32 and convert RGB to grayscale (like in _init_train)
         test_data = np.array(test_data, dtype=np.float32)
 
+        # Convert RGB to grayscale if needed
         if test_data.ndim == 4 and test_data.shape[-1] == 3:
-            test_data = np.mean(test_data, axis=-1)  # RGB to grayscale
+            test_data = np.mean(test_data, axis=-1)
 
-        # Step 2: Flatten each test image to 1D vector
-        N, M, P = test_data.shape  # N test images of size MxP
+        # Flatten test data
+        N, M, P = test_data.shape
         test_data_flat = test_data.reshape(N, M * P)
 
-        # Step 3: Compute distances between each test image and all training images
-        distances = cdist(test_data_flat, self.train_data,
-                          metric='euclidean')  # Shape: N x num_train_samples
+        # Normalize test data if training data was normalized
+        if self.normalize:
+            test_data_flat = (test_data_flat - self.mean) / (self.std + 1e-8)
 
-        # Step 4: Get the indices of the k smallest distances for each test image
-        nearest_indices = np.argsort(distances, axis=1)[:, :k]  # Shape: N x K
+        # Calculate distances
+        metric_map = {
+            'manhattan': 'cityblock',
+            'euclidean': 'euclidean',
+            'cosine': 'cosine',
+            'chebyshev': 'chebyshev'
+        }
+        distances = cdist(test_data_flat, self.train_data, metric=metric_map[self.distance_metric])
 
-        # Step 5: Store the corresponding labels
-        self.neighbors = self.labels[nearest_indices]  # Shape: N x K
+        # Get k nearest neighbors
+        nearest_indices = np.argsort(distances, axis=1)[:, :k]
+        self.neighbors = self.labels[nearest_indices]
+        self.distances = np.take_along_axis(distances, nearest_indices, axis=1)
 
-    def get_class(self):
+    def get_class(self, weights='uniform'):
         """
-        Get the predicted class for each test sample by majority voting (without using scipy.stats.mode).
+        Get predicted class using majority voting.
+
+        Args:
+            weights: 'uniform' or 'distance' for weighted voting
 
         Returns:
-            predicted_classes (np.ndarray): Array of shape (N,) with the predicted class per test sample.
+            Predicted classes for test data
         """
-        predicted_classes = []
+        if weights == 'distance' and hasattr(self, 'distances'):
+            # Weighted voting using inverse distances
+            weights = 1 / (self.distances + 1e-8)
+            predicted_classes = []
 
-        for row in self.neighbors:
-            # Count occurrences of each class label in the row
-            label_counts = {}
-            for label in row:
-                if label in label_counts:
-                    label_counts[label] += 1
-                else:
-                    label_counts[label] = 1
+            for i, (neighbor_row, weight_row) in enumerate(zip(self.neighbors, weights)):
+                unique_labels = np.unique(neighbor_row)
+                label_scores = []
 
-            # Get label with highest count (i.e. majority vote)
-            majority_label = max(label_counts.items(),
-                                 key=operator.itemgetter(1))[0]
-            predicted_classes.append(majority_label)
+                for label in unique_labels:
+                    mask = (neighbor_row == label)
+                    score = np.sum(weight_row[mask])
+                    label_scores.append((label, score))
 
-        return np.array(predicted_classes)
+                # Get label with highest score
+                predicted_classes.append(max(label_scores, key=lambda x: x[1])[0])
 
-    def predict(self, test_data, k):
+            return np.array(predicted_classes)
+        else:
+            # Standard majority voting
+            predicted_classes = []
+            for row in self.neighbors:
+                label_counts = {}
+                for label in row:
+                    label_counts[label] = label_counts.get(label, 0) + 1
+                majority_label = max(label_counts.items(), key=operator.itemgetter(1))[0]
+                predicted_classes.append(majority_label)
+            return np.array(predicted_classes)
+
+    def predict(self, test_data, k, weights='uniform'):
         """
-        predicts the class at which each element in test_data belongs to
-        :param test_data: array that has to be shaped to a NxD matrix (N points in a D dimensional space)
-        :param k: the number of neighbors to look at
-        :return: the output form get_class a Nx1 vector with the predicted shape for each test image
-        """
+        Predict classes for test data.
 
+        Args:
+            test_data: Test data (NxMxNx3 matrix for color images)
+            k: Number of neighbors to consider
+            weights: 'uniform' or 'distance' for weighted voting
+
+        Returns:
+            Predicted classes for test data
+        """
         self.get_k_neighbours(test_data, k)
-        return self.get_class()
+        return self.get_class(weights)
 
+    @staticmethod
+    def cross_val_score(X, y, k_values, n_splits=5, metric='accuracy', distance_metric='euclidean', normalize=False):
+        """
+        Perform k-fold cross validation to evaluate KNN performance.
 
-def load():
-    with open('./test/test_cases_knn.pkl', 'rb') as f:
-        test_cases = pickle.load(f)
-    return test_cases
+        Args:
+            X: Input data
+            y: Labels
+            k_values: List of k values to evaluate
+            n_splits: Number of folds
+            metric: Evaluation metric ('accuracy')
+            distance_metric: Distance metric to use
+            normalize: Whether to normalize data
 
-def test_init_train():
-    with open('./test/test_cases_knn.pkl', 'rb') as f:
-        test_cases = pickle.load(f)
-    for ix, (train_imgs, train_labels) in enumerate(test_cases['input']):
-        knn = KNN(train_imgs, train_labels)
-        # print(len(knn.train_data))
-        # print(knn.train_data.shape)
-        # print(knn.train_data.size)
-        knn.get_k_neighbours(test_cases['test_input'][ix][0], 2)
-        print('test')
+        Returns:
+            Dictionary of {k: average_score}
+        """
+        from sklearn.model_selection import KFold
+        kf = KFold(n_splits=n_splits)
 
-# test_init_train()
+        results = {k: [] for k in k_values}
 
-with open('./test/test_cases_knn.pkl', 'rb') as f:
-    test_cases = pickle.load(f)
+        for train_idx, test_idx in kf.split(X):
+            X_train, X_test = X[train_idx], X[test_idx]
+            y_train, y_test = y[train_idx], y[test_idx]
 
-# Load dataset in grayscale
-data = read_dataset(root_folder='./images/', gt_json='./images/gt.json', with_color=False)
+            for k in k_values:
+                knn = KNN(X_train, y_train, distance_metric=distance_metric, normalize=normalize)
+                pred = knn.predict(X_test, k)
+                accuracy = np.mean(pred == y_test)
+                results[k].append(accuracy)
 
-for ix, (train_imgs, train_labels) in enumerate(test_cases['input']):
-    knn = KNN(train_imgs, train_labels)
-    knn.get_k_neighbours(
-    test_cases['test_input'][ix][0], test_cases['rnd_K'][ix])
-    preds = knn.get_class()
+        return {k: np.mean(scores) for k, scores in results.items()}
 
-    # test_img = read_one_img('./imatge2.png',80,60,False)           # the test image to classify
-    # predicted_label = knn.predict(preds, 5)
+    def evaluate(self, test_data, test_labels, k, weights='uniform'):
+        """
+        Evaluate model performance on test data.
 
-    # print(predicted_label)
-    # predicted_label = knn.predict(np.expand_dims(test_img, axis=0), 5)
-    # print(predicted_label)
+        Args:
+            test_data: Test data
+            test_labels: True labels for test data
+            k: Number of neighbors
+            weights: 'uniform' or 'distance' for weighted voting
 
-
-# # Assume the dataset has the following structure:
-# train_imgs = data['train_imgs']       # all training images (in grayscale)
-# train_labels = data['train_labels']   # labels associated with the training images
-# test_img = read_one_img('./Imatge1.png',80,60,False)           # the test image to classify
-
-# # Initialize the classifier using all training images and labels
-# knn = KNN(train_imgs, train_labels)
-
-# # Predict the label for the test image using K=5.
-# # Note: The predict method expects a batch of test images. If test_img is a single image, add a batch dimension.
-# predicted_label = knn.predict(np.expand_dims(test_img, axis=0), 5)
-# print(predicted_label)
+        Returns:
+            accuracy: Classification accuracy
+        """
+        predictions = self.predict(test_data, k, weights)
+        return np.mean(predictions == test_labels)

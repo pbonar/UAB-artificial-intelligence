@@ -4,12 +4,11 @@ __group__ = 'TO_BE_FILLED'
 from utils_data import read_dataset, read_extended_dataset, crop_images
 import time
 import matplotlib.pyplot as plt
-from Kmeans import *
-from KNN import *
 from Kmeans_improved import *
 from KNN_improved import *
 
 import numpy as np
+import os
 
 # ===== 4.1 - Qualitative analysis functions =====
 
@@ -84,10 +83,8 @@ def retrieve_by_color(images, color_tags, query_colors, color_percentages=None, 
                 single_true_positives = sum(
                     1 for i in matched_indices if color in true_tags[i] and color in color_tags[i])
 
-                color_precision = single_true_positives / \
-                    single_found_count if single_found_count > 0 else 0
-                color_recall = single_true_positives / \
-                    single_true_count if single_true_count > 0 else 0
+                color_precision = single_true_positives / single_found_count if single_found_count > 0 else 0
+                color_recall = single_true_positives / single_true_count if single_true_count > 0 else 0
 
                 color_stats[color] = {
                     'precision': color_precision * 100,
@@ -323,6 +320,7 @@ def get_color_accuracy(pred_tag_sets, true_tag_sets, verbose=True):
     - color_stats: dict with per-color accuracy statistics
     """
     scores = []
+
     # For tracking per-color accuracy:
     color_confusion = {}
     color_tp = {}
@@ -388,12 +386,10 @@ def get_color_accuracy(pred_tag_sets, true_tag_sets, verbose=True):
         print("\n--- Color Accuracy Statistics ---")
         print(f"Overall accuracy: {avg_accuracy:.1f}%")
         print("\nPer-color metrics:")
-        print(f"{'Color':6} |  | {'Precision':>10} | {
-              'Recall':>10} | {'F1':>6}")
+        print(f"{'Color':6} |  | {'Precision':>10} | {'Recall':>10} | {'F1':>6}")
         for color in sorted(all_colors):
             stats = color_stats[color]
-            print(f"  {color:6}: {stats['precision']:.2f}, {
-                  stats['recall']:.2f}, {stats['f1']:.2f}")
+            print(f"  {color:6}: {stats['precision']:.2f}, {stats['recall']:.2f}, {stats['f1']:.2f}")
 
     return avg_accuracy, color_stats
 
@@ -483,6 +479,167 @@ def plot_color_confusion_matrix(pred_tag_sets, true_tag_sets):
     return confusion_matrix
 
 
+def filter_predicted_colors(percentages, max_colors=2, min_percent=0.15):
+    """
+    Returns up to max_colors color labels with at least min_percent share.
+    If not enough colors meet the threshold, fills up to max_colors with the most dominant.
+    """
+    sorted_colors = sorted(percentages.items(), key=lambda x: -x[1])
+    filtered = [color for color, perc in sorted_colors if perc >= min_percent]
+    # Always take at least the most dominant color
+    if not filtered and sorted_colors:
+        filtered = [sorted_colors[0][0]]
+    # Limit to max_colors
+    filtered = filtered[:max_colors]
+    return set(filtered)
+
+# ====== 4.3 - Experiments with color functions =====
+def run_color_thresholds_experiment():
+    """
+    Test different thresholds for minimal color percentage and print accuracy for each.
+    """
+    thresholds = [x / 100 for x in range(0, 55, 5)]  # 0.00, 0.05, ..., 0.50
+    print("Testing color thresholds for minimal color percentage:")
+    # Wczytaj dane jak w main
+    train_imgs, train_class_labels, train_color_labels, test_imgs, test_class_labels, test_color_labels = read_dataset(
+        root_folder='./images/', gt_json='./images/gt.json')
+    imgs, class_labels, color_labels, upper, lower, background = read_extended_dataset()
+    cropped_test_imgs = crop_images(test_imgs, upper, lower)
+    for thresh in thresholds:
+        pred_test_color = []
+        for img in cropped_test_imgs:
+            pix = img.reshape(-1, 3)
+            unique_pix = np.unique(pix, axis=0)
+            if len(unique_pix) < 2:
+                pred_test_color.append({'White'})
+                continue
+            K = min(6, max(2, len(unique_pix)))
+            km = KMeans(pix, K=K)
+            km.fit()
+            cent_cols = km.centroids
+            labels = get_colors(cent_cols)
+            pixel_count = len(pix)
+            cluster_counts = np.bincount(km.labels, minlength=km.K)
+            percentages = {labels[i]: cluster_counts[i] / pixel_count for i in range(km.K)}
+            dominant_colors = set([color for color, perc in sorted(percentages.items(), key=lambda x: -x[1]) if perc >= thresh])
+            if not dominant_colors and percentages:
+                dominant_colors = {max(percentages, key=percentages.get)}
+            dominant_colors = set(list(dominant_colors)[:2])
+            pred_test_color.append(dominant_colors)
+        acc, _ = get_color_accuracy(pred_test_color, test_color_labels, verbose=False)
+        print(f"Threshold: {int(thresh*100):2d}%  ->  Accuracy: {acc:.1f}%")
+
+def test_color_thresholds():
+    """
+    Pytest-compatible test function for threshold experiment.
+    Prints accuracy for thresholds from 0% to 50% (step 5%).
+    """
+    train_imgs, train_class_labels, train_color_labels, test_imgs, test_class_labels, test_color_labels = read_dataset(
+        root_folder='./images/', gt_json='./images/gt.json')
+    imgs, class_labels, color_labels, upper, lower, background = read_extended_dataset()
+    cropped_test_imgs = crop_images(test_imgs, upper, lower)
+    thresholds = [x / 100 for x in range(0, 55, 5)]  # 0.00, 0.05, ..., 0.50
+    print("Testing color thresholds for minimal color percentage:")
+    for thresh in thresholds:
+        pred_test_color = []
+        for img in cropped_test_imgs:
+            pix = img.reshape(-1, 3)
+            unique_pix = np.unique(pix, axis=0)
+            if len(unique_pix) < 2:
+                pred_test_color.append({'White'})
+                continue
+            K = min(6, max(2, len(unique_pix)))
+            km = KMeans(pix, K=K)
+            km.fit()
+            cent_cols = km.centroids
+            labels = get_colors(cent_cols)
+            pixel_count = len(pix)
+            cluster_counts = np.bincount(km.labels, minlength=km.K)
+            percentages = {labels[i]: cluster_counts[i] / pixel_count for i in range(km.K)}
+            dominant_colors = set([color for color, perc in sorted(percentages.items(), key=lambda x: -x[1]) if perc >= thresh])
+            if not dominant_colors and percentages:
+                dominant_colors = {max(percentages, key=percentages.get)}
+            dominant_colors = set(list(dominant_colors)[:2])
+            pred_test_color.append(dominant_colors)
+        acc, _ = get_color_accuracy(pred_test_color, test_color_labels, verbose=False)
+        print(f"Threshold: {int(thresh*100):2d}%  ->  Accuracy: {acc:.1f}%")
+
+def test_k_vs_accuracy():
+    """
+    Pytest-compatible test function for K vs. accuracy with threshold 5%.
+    Prints accuracy for K=2..8.
+    """
+    train_imgs, train_class_labels, train_color_labels, test_imgs, test_class_labels, test_color_labels = read_dataset(
+        root_folder='./images/', gt_json='./images/gt.json')
+    imgs, class_labels, color_labels, upper, lower, background = read_extended_dataset()
+    cropped_test_imgs = crop_images(test_imgs, upper, lower)
+    min_percent = 0.05
+    print("Testing K vs. accuracy (threshold 5%):")
+    for K in range(2, 9):
+        pred_test_color = []
+        for img in cropped_test_imgs:
+            pix = img.reshape(-1, 3)
+            unique_pix = np.unique(pix, axis=0)
+            if len(unique_pix) < 2:
+                pred_test_color.append({'White'})
+                continue
+            k_val = min(K, max(2, len(unique_pix)))
+            km = KMeans(pix, K=k_val)
+            km.fit()
+            cent_cols = km.centroids
+            labels = get_colors(cent_cols)
+            pixel_count = len(pix)
+            cluster_counts = np.bincount(km.labels, minlength=km.K)
+            percentages = {labels[i]: cluster_counts[i] / pixel_count for i in range(km.K)}
+            dominant_colors = set([color for color, perc in sorted(percentages.items(), key=lambda x: -x[1]) if perc >= min_percent])
+            if not dominant_colors and percentages:
+                dominant_colors = {max(percentages, key=percentages.get)}
+            dominant_colors = set(list(dominant_colors)[:2])
+            pred_test_color.append(dominant_colors)
+        acc, _ = get_color_accuracy(pred_test_color, test_color_labels, verbose=False)
+        print(f"K = {K}: Accuracy = {acc:.1f}%")
+
+def test_k_and_threshold_grid():
+    """
+    Pytest-compatible test function for K and threshold grid search.
+    Prints accuracy for all combinations K=2..8 and threshold=0%,5%,...,50%.
+    """
+    train_imgs, train_class_labels, train_color_labels, test_imgs, test_class_labels, test_color_labels = read_dataset(
+        root_folder='./images/', gt_json='./images/gt.json')
+    imgs, class_labels, color_labels, upper, lower, background = read_extended_dataset()
+    cropped_test_imgs = crop_images(test_imgs, upper, lower)
+    thresholds = [x / 100 for x in range(0, 55, 5)]  # 0.00, 0.05, ..., 0.50
+    print("Grid search: K vs. threshold (accuracy):")
+    print("      " + "  ".join([f"thr={int(t*100):2d}%" for t in thresholds]))
+    for K in range(2, 9):
+        accs = []
+        for thresh in thresholds:
+            pred_test_color = []
+            for img in cropped_test_imgs:
+                pix = img.reshape(-1, 3)
+                unique_pix = np.unique(pix, axis=0)
+                if len(unique_pix) < 2:
+                    pred_test_color.append({'White'})
+                    continue
+                k_val = min(K, max(2, len(unique_pix)))
+                km = KMeans(pix, K=k_val)
+                km.fit()
+                cent_cols = km.centroids
+                labels = get_colors(cent_cols)
+                pixel_count = len(pix)
+                cluster_counts = np.bincount(km.labels, minlength=km.K)
+                percentages = {labels[i]: cluster_counts[i] / pixel_count for i in range(km.K)}
+                dominant_colors = set([color for color, perc in sorted(percentages.items(), key=lambda x: -x[1]) if perc >= thresh])
+                if not dominant_colors and percentages:
+                    dominant_colors = {max(percentages, key=percentages.get)}
+                dominant_colors = set(list(dominant_colors)[:2])
+                pred_test_color.append(dominant_colors)
+            acc, _ = get_color_accuracy(pred_test_color, test_color_labels, verbose=False)
+            accs.append(f"{acc:5.1f}")
+        print(f"K={K}: " + "  ".join(accs))
+
+
+# ===== Main function =====
 if __name__ == '__main__':
 
     # Load all the images and GT
@@ -506,27 +663,35 @@ if __name__ == '__main__':
     print("Starting color-tag prediction on test set")
     pred_test_color = []
     color_percentages = []
-    for img in test_imgs:
+    cropped_test_imgs = crop_images(test_imgs, upper, lower)
+    for img in cropped_test_imgs:
         pix = img.reshape(-1, 3)
-        km = KMeans(pix, K=6)
+        unique_pix = np.unique(pix, axis=0)
+        if len(unique_pix) < 2:
+            pred_test_color.append({'White'})
+            color_percentages.append({'White': 1.0})
+            continue
+        # Ustal K=6 i threshold=0.10 (10%)
+        K = min(6, max(2, len(unique_pix)))
+        km = KMeans(pix, K=K)
         km.fit()
         cent_cols = km.centroids
         labels = get_colors(cent_cols)
-        pred_test_color.append(set(labels))
-        # Calculate percentage of pixels in each cluster
         pixel_count = len(pix)
         cluster_counts = np.bincount(km.labels, minlength=km.K)
-        percentages = {labels[i]: cluster_counts[i] /
-                       pixel_count for i in range(km.K)}
+        percentages = {labels[i]: cluster_counts[i] / pixel_count for i in range(km.K)}
+        color_percentages.append(percentages)
+        dominant_colors = set([color for color, perc in sorted(percentages.items(), key=lambda x: -x[1]) if perc >= 0.10])
+        if not dominant_colors and percentages:
+            dominant_colors = {max(percentages, key=percentages.get)}
+        dominant_colors = set(list(dominant_colors)[:2])
+        pred_test_color.append(dominant_colors)
 
-        color_percentages.append(percentages)  # Store percentages per image
-
-    # After generating predictions
     color_acc, color_stats = get_color_accuracy(
         pred_test_color, test_color_labels, verbose=True)
-    print(f"Test‐set color accuracy: {color_acc:.1f}%")
+    print(f"Test set color accuracy: {color_acc:.1f}%")
 
-    # plot the confusion matrix
+
     conf_matrix = plot_color_confusion_matrix(
         pred_test_color, test_color_labels)
 
@@ -534,37 +699,32 @@ if __name__ == '__main__':
     knn = KNN(train_imgs, train_class_labels)
     pred_test_shape = knn.predict(test_imgs, k=3)
     shape_acc = get_shape_accuracy(pred_test_shape, test_class_labels)
-    print(f"Test‐set shape accuracy: {shape_acc:.1f}%")
+    print(f"Test set shape accuracy: {shape_acc:.1f}%")
 
     print("Searching for test images containing 'Red' and 'Blue' colors...")
 
     results_color, color_stats = retrieve_by_color(test_imgs, pred_test_color, ['Red', 'Blue'],
                                                    color_percentages=color_percentages, true_tags=test_color_labels)
     print(color_stats['summary'])
-    print(f"Precision: {color_stats['precision']:.1f}%, Recall: {
-          color_stats['recall']:.1f}%")
+    print(f"Precision: {color_stats['precision']:.1f}%, Recall: {color_stats['recall']:.1f}%")
     print(f"F1-Score: {color_stats['f1_score']:.1f}%")
 
     # For multi-color queries, you can also access per-color statistics
     if 'color_specific' in color_stats:
         print("\nPer-color statistics:")
         for color, stats in color_stats['color_specific'].items():
-            print(f"  {color}: Precision: {
-                  stats['precision']:.1f}%, Recall: {stats['recall']:.1f}%")
+            print(f"  {color}: Precision: {stats['precision']:.1f}%, Recall: {stats['recall']:.1f}%")
 
         for i, (img, tags) in enumerate(zip(test_imgs, pred_test_color)):
             if all(c in tags for c in ['Red', 'Blue']):
                 print(f"  - Matching file: test_{i}.jpg with tags: {tags}")
 
     print("Searching for test images predicted as 'Jeans'...")
-    # results_shape = retrieve_by_shape(test_imgs, pred_test_shape, 'Jeans')
-    # print(f"Found {len(results_shape)} images matching shape query.")
 
     results_shape, stats = retrieve_by_shape(test_imgs, pred_test_shape, 'Jeans',
                                              true_tags=test_class_labels)
     print(stats['summary'])
-    print(f"Precision: {stats['precision']:.1f}%, Recall: {
-          stats['recall']:.1f}%")
+    print(f"Precision: {stats['precision']:.1f}%, Recall: {stats['recall']:.1f}%")
 
     for i, tag in enumerate(pred_test_shape):
         if tag == 'Jeans':
@@ -572,7 +732,7 @@ if __name__ == '__main__':
 
     print("Searching for 'Blue Jeans' images...")
     results_combined = retrieve_combined(
-        test_imgs, pred_test_shape, pred_test_color, 'Jeans', 'Blue')
+        test_imgs, pred_test_shape, pred_test_color, 'Tshirt', 'White')
     print(f"Found {len(results_combined)} images matching combined query.")
     for i, (tag, colors) in enumerate(zip(pred_test_shape, pred_test_color)):
         if tag == 'Jeans' and 'Blue' in colors:
