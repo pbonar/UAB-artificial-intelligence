@@ -6,6 +6,9 @@ import time
 import matplotlib.pyplot as plt
 from Kmeans import *
 from KNN import *
+from Kmeans_improved import *
+from KNN_improved import *
+
 import numpy as np
 
 # ===== 4.1 - Qualitative analysis functions =====
@@ -496,9 +499,9 @@ if __name__ == '__main__':
     print('Read the dataset')
 
     # # --- Metrics ---
-    print("Running K-means diagnostics for K = 2…kmax (this can take a while)")
-    all_train_pixels = np.vstack([img.reshape(-1, 3) for img in train_imgs])
-    ks, wcds, its, times = kmean_statistics(KMeans, all_train_pixels, kmax=6)
+    # print("Running K-means diagnostics for K = 2…kmax (this can take a while)")
+    # all_train_pixels = np.vstack([img.reshape(-1, 3) for img in train_imgs])
+    # ks, wcds, its, times = kmean_statistics(KMeans, all_train_pixels, kmax=6)
 
     print("Starting color-tag prediction on test set")
     pred_test_color = []
@@ -606,3 +609,95 @@ if __name__ == '__main__':
             except:
                 pass
         plt.show()
+
+        print("Comparing distance metrics for KNN shape classification")
+
+        for metric in ['euclidean', 'manhattan']:
+            print(f"\nUsing distance metric: {metric}")
+
+            knn = KNN(train_imgs, train_class_labels, distance_metric=metric)
+            pred_test_shape = knn.predict(test_imgs, k=3)
+
+            shape_acc = get_shape_accuracy(pred_test_shape, test_class_labels)
+            print(f"Test-set shape accuracy with {metric}: {shape_acc:.1f}%")
+
+        print("Distance metric vs. k comparison")
+
+        for metric in ['euclidean', 'manhattan']:
+            print(f"\nMetric: {metric}")
+            for k in [1, 3, 5, 7]:
+                knn = KNN(train_imgs, train_class_labels, distance_metric=metric)
+                pred_test_shape = knn.predict(test_imgs, k=k)
+                acc = get_shape_accuracy(pred_test_shape, test_class_labels)
+                print(f"k = {k}: Accuracy = {acc:.1f}%")
+
+        heuristics = ['wcd', 'inter_class', 'fisher']
+        print("Comparing K selection heuristics for color classification")
+
+        for heuristic in heuristics:
+            print(f"\nUsing heuristic: {heuristic}")
+            pred_test_color = []
+
+            for img in test_imgs:
+                pix = img.reshape(-1, 3)
+
+                # Starte mit einem Dummy-K (z.B. 2), wird gleich überschrieben
+                km = KMeans(pix, K=2, options={"km_init": "random"})
+
+                # Bestes K bestimmen (maximal z. B. 6)
+                best_K = km.find_bestK_by_heuristic(max_K=6, method=heuristic, verbose=False)
+
+                # KMeans neu initialisieren mit bestem K
+                km = KMeans(pix, K=best_K, options={"km_init": "random"})
+                km.fit()
+
+                cent_cols = km.centroids
+                labels = get_colors(cent_cols)
+                pred_test_color.append(set(labels))
+
+            color_acc, color_stats = get_color_accuracy(pred_test_color, test_color_labels, verbose=False)
+            print(f"Color accuracy using '{heuristic}': {color_acc:.1f}%")
+
+        from collections import Counter
+
+        heuristics = ['wcd', 'inter_class', 'fisher']
+        print(
+            "Comparing global best K for each heuristic")  # this takes a while! That's why it is in comments right now
+
+        # for heuristic in heuristics:
+        #    print(f"Heuristic: '{heuristic}'")
+
+        #    # ---------------------------------------
+        #    # 1. GLOBAL BEST K on training data
+        #    # ---------------------------------------
+        #    all_pixels = []
+
+        #    for img in train_imgs:
+        #        pix = img.reshape(-1, 3)
+        #        all_pixels.append(pix)
+
+        #    all_pixels = np.concatenate(all_pixels, axis=0)
+
+        #    km = KMeans(all_pixels, K=2, options={"km_init": "random"})
+        #    best_K = km.find_bestK_by_heuristic(max_K=6, method=heuristic, verbose=False)
+
+        #    print(f"Global best K determined on training set: {best_K}")
+
+        # ---------------------------------------
+        # 2. TEST with global K
+        # ---------------------------------------
+        #    pred_test_color = []
+
+        #    for img in test_imgs:
+        #        pix = img.reshape(-1, 3)
+        #        km = KMeans(pix, K=best_K, options={"km_init": "random"})
+        #        km.fit()
+        #        centroids = km.centroids
+        #        labels = get_colors(centroids)
+        #        pred_test_color.append(set(labels))
+
+        # ---------------------------------------
+        # 3. Color Accuracy
+        # ---------------------------------------
+        #    color_acc, _ = get_color_accuracy(pred_test_color, test_color_labels, verbose=False)
+        #    print(f"Color accuracy using global K: {color_acc:.1f}%")

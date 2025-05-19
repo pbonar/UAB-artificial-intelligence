@@ -1,6 +1,7 @@
 __authors__ = 'TO_BE_FILLED'
 __group__ = 'TO_BE_FILLED'
 
+from utils_data import read_dataset, read_extended_dataset, crop_images
 import numpy as np
 import math
 import operator
@@ -137,12 +138,12 @@ for ix, (train_imgs, train_labels) in enumerate(test_cases['input']):
     test_cases['test_input'][ix][0], test_cases['rnd_K'][ix])
     preds = knn.get_class()
 
-    test_img = read_one_img('./imatge2.png',80,60,False)           # the test image to classify
+    # test_img = read_one_img('./imatge2.png',80,60,False)           # the test image to classify
     # predicted_label = knn.predict(preds, 5)
 
     # print(predicted_label)
-    predicted_label = knn.predict(np.expand_dims(test_img, axis=0), 5)
-    print(predicted_label)
+    # predicted_label = knn.predict(np.expand_dims(test_img, axis=0), 5)
+    # print(predicted_label)
 
 
 # # Assume the dataset has the following structure:
