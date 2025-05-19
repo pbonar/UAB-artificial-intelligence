@@ -10,8 +10,8 @@ from KNN_improved import *
 import numpy as np
 import os
 
-# ===== 4.1 - Qualitative analysis functions =====
 
+# ===== 4.1 - Qualitative analysis functions =====
 
 def retrieve_by_color(images, color_tags, query_colors, color_percentages=None, true_tags=None):
     """
@@ -110,9 +110,7 @@ def retrieve_by_shape(images, shape_tags, query_shape, shape_confidences=None):
     """
     matched = []
     for i, tag in enumerate(shape_tags):
-        # print(f"[Shape Retrieval] Image {i} tag: {tag}")
         if tag == query_shape:
-            # print(f"[Shape Retrieval] -> Match for {query_shape} in image {i}")
             matched.append(
                 (images[i], shape_confidences[i] if shape_confidences else 1.0))
 
@@ -210,8 +208,8 @@ def retrieve_combined(images, shape_tags, color_tags, query_shape, query_colors,
     matched.sort(key=lambda x: -x[1])
     return [img for img, _ in matched]
 
-# ===== 4.2 - Quantitative analysis functions =====
 
+# ===== 4.2 - Quantitative analysis functions =====
 
 def kmean_statistics(kmeans_class, images, kmax):
     """
@@ -353,15 +351,14 @@ def get_color_accuracy(pred_tag_sets, true_tag_sets, verbose=True):
         # Update per-color statistics
         for color in inter:
             color_tp[color] += 1
-        for color in pset - tset:  # Colors predicted but not in truth
+        for color in pset - tset:
             color_fp[color] += 1
-            # Track what was predicted instead of truth
             for true_color in tset:
                 if true_color not in color_confusion[color]:
                     color_confusion[color][true_color] = 0
                 color_confusion[color][true_color] += 1
 
-        for color in tset - pset:  # Colors in truth but not predicted
+        for color in tset - pset:
             color_fn[color] += 1
 
     avg_accuracy = (sum(scores) / len(scores)) * 100 if scores else 0.0
@@ -424,26 +421,20 @@ def plot_color_confusion_matrix(pred_tag_sets, true_tag_sets):
         true_set = set(true_set)
         pred_set = set(pred_set)
 
-        # Add to diagonal for correct predictions
         for color in true_set.intersection(pred_set):
             idx = color_to_idx[color]
             confusion_matrix[idx, idx] += 1
 
-        # For each true color that wasn't predicted (false negatives)
-        # Count what colors were predicted instead
         for missed_color in true_set - pred_set:
             true_idx = color_to_idx[missed_color]
-            # Distribute the miss across the predicted colors
-            if pred_set:  # Only if there were predictions
+            if pred_set:
                 for wrong_color in pred_set:
                     pred_idx = color_to_idx[wrong_color]
                     confusion_matrix[true_idx, pred_idx] += 1 / len(pred_set)
 
-        # For each predicted color that wasn't in ground truth (false positives)
         for extra_color in pred_set - true_set:
             pred_idx = color_to_idx[extra_color]
-            # Distribute the false positive across the true colors
-            if true_set:  # Only if there were true colors
+            if true_set:
                 for actual_color in true_set:
                     true_idx = color_to_idx[actual_color]
                     confusion_matrix[true_idx, pred_idx] += 1 / len(true_set)
@@ -496,11 +487,11 @@ def filter_predicted_colors(percentages, max_colors=2, min_percent=0.15):
 # ====== 4.3 - Experiments with color functions =====
 def run_color_thresholds_experiment():
     """
-    Test different thresholds for minimal color percentage and print accuracy for each.
+    Run an experiment to test different thresholds for the minimal color percentage.
+    Prints the accuracy for each threshold value.
     """
-    thresholds = [x / 100 for x in range(0, 55, 5)]  # 0.00, 0.05, ..., 0.50
+    thresholds = [x / 100 for x in range(0, 55, 5)]  # Test thresholds from 0% to 50% (step 5%)
     print("Testing color thresholds for minimal color percentage:")
-    # Wczytaj dane jak w main
     train_imgs, train_class_labels, train_color_labels, test_imgs, test_class_labels, test_color_labels = read_dataset(
         root_folder='./images/', gt_json='./images/gt.json')
     imgs, class_labels, color_labels, upper, lower, background = read_extended_dataset()
@@ -531,7 +522,7 @@ def run_color_thresholds_experiment():
 
 def test_color_thresholds():
     """
-    Pytest-compatible test function for threshold experiment.
+    Pytest-compatible function for threshold experiment.
     Prints accuracy for thresholds from 0% to 50% (step 5%).
     """
     train_imgs, train_class_labels, train_color_labels, test_imgs, test_class_labels, test_color_labels = read_dataset(
@@ -566,7 +557,7 @@ def test_color_thresholds():
 
 def test_k_vs_accuracy():
     """
-    Pytest-compatible test function for K vs. accuracy with threshold 5%.
+    Pytest-compatible function for K vs. accuracy with threshold 5%.
     Prints accuracy for K=2..8.
     """
     train_imgs, train_class_labels, train_color_labels, test_imgs, test_class_labels, test_color_labels = read_dataset(
@@ -601,7 +592,7 @@ def test_k_vs_accuracy():
 
 def test_k_and_threshold_grid():
     """
-    Pytest-compatible test function for K and threshold grid search.
+    Pytest-compatible function for K and threshold grid search.
     Prints accuracy for all combinations K=2..8 and threshold=0%,5%,...,50%.
     """
     train_imgs, train_class_labels, train_color_labels, test_imgs, test_class_labels, test_color_labels = read_dataset(
@@ -642,24 +633,25 @@ def test_k_and_threshold_grid():
 # ===== Main function =====
 if __name__ == '__main__':
 
-    # Load all the images and GT
+    # Load all images and ground truth
     train_imgs, train_class_labels, train_color_labels, test_imgs, test_class_labels, test_color_labels = read_dataset(
         root_folder='./images/', gt_json='./images/gt.json')
 
-    # List with all the existent classes
+    # Get all unique classes
     classes = list(set(list(train_class_labels) + list(test_class_labels)))
 
     # Load extended ground truth and cropped images
     imgs, class_labels, color_labels, upper, lower, background = read_extended_dataset()
     cropped_images = crop_images(imgs, upper, lower)
 
-    print('Read the dataset')
-
-    # # --- Metrics ---
+    print('Dataset loaded')
+    
+    # --- Metrics ---
     # print("Running K-means diagnostics for K = 2…kmax (this can take a while)")
     # all_train_pixels = np.vstack([img.reshape(-1, 3) for img in train_imgs])
     # ks, wcds, its, times = kmean_statistics(KMeans, all_train_pixels, kmax=6)
 
+    # --- Color tag prediction on test set ---
     print("Starting color-tag prediction on test set")
     pred_test_color = []
     color_percentages = []
@@ -671,7 +663,7 @@ if __name__ == '__main__':
             pred_test_color.append({'White'})
             color_percentages.append({'White': 1.0})
             continue
-        # Ustal K=6 i threshold=0.10 (10%)
+        # Use K=6 and threshold=0.10 (10%)
         K = min(6, max(2, len(unique_pix)))
         km = KMeans(pix, K=K)
         km.fit()
@@ -691,58 +683,62 @@ if __name__ == '__main__':
         pred_test_color, test_color_labels, verbose=True)
     print(f"Test set color accuracy: {color_acc:.1f}%")
 
+    # --- Color prediction mismatches ---
+    print("\nExamples of color prediction mismatches (first 10):")
+    shown = 0
+    test_dir = "./images/Test"
+    test_filenames = sorted([f for f in os.listdir(test_dir) if f.lower().endswith('.jpg') or f.lower().endswith('.png')])
+    for i, (pred, true) in enumerate(zip(pred_test_color, test_color_labels)):
+        if i < len(test_filenames):
+            filename = test_filenames[i]
+        else:
+            filename = f"test_{i}.jpg"
+        if set(pred) != set(true):
+            print(f"File {filename}: prediction={pred}, ground_truth={true}")
+            shown += 1
+        if shown >= 10:
+            break
 
     conf_matrix = plot_color_confusion_matrix(
         pred_test_color, test_color_labels)
 
-    print("Starting shape classification on test set")
+    # --- Shape classification on test set ---
+    print("\nStarting shape classification on test set")
     knn = KNN(train_imgs, train_class_labels)
     pred_test_shape = knn.predict(test_imgs, k=3)
     shape_acc = get_shape_accuracy(pred_test_shape, test_class_labels)
     print(f"Test set shape accuracy: {shape_acc:.1f}%")
 
-    print("Searching for test images containing 'Red' and 'Blue' colors...")
-
+    # --- Color retrieval example ---
+    print("\nSearching for test images containing 'Red' and 'Blue' colors...")
     results_color, color_stats = retrieve_by_color(test_imgs, pred_test_color, ['Red', 'Blue'],
                                                    color_percentages=color_percentages, true_tags=test_color_labels)
     print(color_stats['summary'])
     print(f"Precision: {color_stats['precision']:.1f}%, Recall: {color_stats['recall']:.1f}%")
     print(f"F1-Score: {color_stats['f1_score']:.1f}%")
 
-    # For multi-color queries, you can also access per-color statistics
     if 'color_specific' in color_stats:
         print("\nPer-color statistics:")
         for color, stats in color_stats['color_specific'].items():
             print(f"  {color}: Precision: {stats['precision']:.1f}%, Recall: {stats['recall']:.1f}%")
 
-        for i, (img, tags) in enumerate(zip(test_imgs, pred_test_color)):
-            if all(c in tags for c in ['Red', 'Blue']):
-                print(f"  - Matching file: test_{i}.jpg with tags: {tags}")
-
+    # --- Shape retrieval example ---
     print("Searching for test images predicted as 'Jeans'...")
-
     results_shape, stats = retrieve_by_shape(test_imgs, pred_test_shape, 'Jeans',
                                              true_tags=test_class_labels)
     print(stats['summary'])
     print(f"Precision: {stats['precision']:.1f}%, Recall: {stats['recall']:.1f}%")
 
-    for i, tag in enumerate(pred_test_shape):
-        if tag == 'Jeans':
-            print(f"  - Matching file: test_{i}.jpg with shape: {tag}")
-
+    # --- Combined retrieval example ---
     print("Searching for 'Blue Jeans' images...")
     results_combined = retrieve_combined(
-        test_imgs, pred_test_shape, pred_test_color, 'Tshirt', 'White')
+        test_imgs, pred_test_shape, pred_test_color, 'Jeans', 'Blue')
     print(f"Found {len(results_combined)} images matching combined query.")
-    for i, (tag, colors) in enumerate(zip(pred_test_shape, pred_test_color)):
-        if tag == 'Jeans' and 'Blue' in colors:
-            print(
-                f"  - Matching file: test_{i}.jpg with shape: {tag} and colors: {colors}")
 
     if results_combined:
         print("Displaying all 'Blue Jeans' results in a grid...")
-        max_width_in = 16  # max width of figure in inches
-        img_width = 3  # individual image width in inches
+        max_width_in = 16
+        img_width = 3
         cols = max(1, min(5, max_width_in // img_width))
         rows = math.ceil(len(results_combined) / cols)
 
@@ -764,8 +760,7 @@ if __name__ == '__main__':
             mng.window.state('zoomed')  # Maximize window on Windows
         except:
             try:
-                # Resize to max on Linux/macOS
-                mng.resize(*mng.window.maxsize())
+                mng.resize(*mng.window.maxsize())  # Maximize on Linux/macOS
             except:
                 pass
         plt.show()
@@ -785,14 +780,14 @@ if __name__ == '__main__':
 
         for metric in ['euclidean', 'manhattan']:
             print(f"\nMetric: {metric}")
-            for k in [1, 3, 5, 7]:
+            for k in [1, 2, 3, 4, 5, 6, 7]:
                 knn = KNN(train_imgs, train_class_labels, distance_metric=metric)
                 pred_test_shape = knn.predict(test_imgs, k=k)
                 acc = get_shape_accuracy(pred_test_shape, test_class_labels)
                 print(f"k = {k}: Accuracy = {acc:.1f}%")
 
         heuristics = ['wcd', 'inter_class', 'fisher']
-        print("Comparing K selection heuristics for color classification")
+        print("Comparing K selection heuristics for color classification km_init = random")
 
         for heuristic in heuristics:
             print(f"\nUsing heuristic: {heuristic}")
@@ -801,13 +796,10 @@ if __name__ == '__main__':
             for img in test_imgs:
                 pix = img.reshape(-1, 3)
 
-                # Starte mit einem Dummy-K (z.B. 2), wird gleich überschrieben
                 km = KMeans(pix, K=2, options={"km_init": "random"})
 
-                # Bestes K bestimmen (maximal z. B. 6)
                 best_K = km.find_bestK_by_heuristic(max_K=6, method=heuristic, verbose=False)
 
-                # KMeans neu initialisieren mit bestem K
                 km = KMeans(pix, K=best_K, options={"km_init": "random"})
                 km.fit()
 
@@ -818,46 +810,24 @@ if __name__ == '__main__':
             color_acc, color_stats = get_color_accuracy(pred_test_color, test_color_labels, verbose=False)
             print(f"Color accuracy using '{heuristic}': {color_acc:.1f}%")
 
-        from collections import Counter
+        print("Comparing K selection heuristics for color classification km_init = first")
+        for heuristic in heuristics:
+            print(f"\nUsing heuristic: {heuristic}")
+            pred_test_color = []
 
-        heuristics = ['wcd', 'inter_class', 'fisher']
-        print(
-            "Comparing global best K for each heuristic")  # this takes a while! That's why it is in comments right now
+            for img in test_imgs:
+                pix = img.reshape(-1, 3)
 
-        # for heuristic in heuristics:
-        #    print(f"Heuristic: '{heuristic}'")
+                km = KMeans(pix, K=2, options={"km_init": "first"})
 
-        #    # ---------------------------------------
-        #    # 1. GLOBAL BEST K on training data
-        #    # ---------------------------------------
-        #    all_pixels = []
+                best_K = km.find_bestK_by_heuristic(max_K=6, method=heuristic, verbose=False)
 
-        #    for img in train_imgs:
-        #        pix = img.reshape(-1, 3)
-        #        all_pixels.append(pix)
+                km = KMeans(pix, K=best_K, options={"km_init": "first"})
+                km.fit()
 
-        #    all_pixels = np.concatenate(all_pixels, axis=0)
+                cent_cols = km.centroids
+                labels = get_colors(cent_cols)
+                pred_test_color.append(set(labels))
 
-        #    km = KMeans(all_pixels, K=2, options={"km_init": "random"})
-        #    best_K = km.find_bestK_by_heuristic(max_K=6, method=heuristic, verbose=False)
-
-        #    print(f"Global best K determined on training set: {best_K}")
-
-        # ---------------------------------------
-        # 2. TEST with global K
-        # ---------------------------------------
-        #    pred_test_color = []
-
-        #    for img in test_imgs:
-        #        pix = img.reshape(-1, 3)
-        #        km = KMeans(pix, K=best_K, options={"km_init": "random"})
-        #        km.fit()
-        #        centroids = km.centroids
-        #        labels = get_colors(centroids)
-        #        pred_test_color.append(set(labels))
-
-        # ---------------------------------------
-        # 3. Color Accuracy
-        # ---------------------------------------
-        #    color_acc, _ = get_color_accuracy(pred_test_color, test_color_labels, verbose=False)
-        #    print(f"Color accuracy using global K: {color_acc:.1f}%")
+            color_acc, color_stats = get_color_accuracy(pred_test_color, test_color_labels, verbose=False)
+            print(f"Color accuracy using '{heuristic}': {color_acc:.1f}%")

@@ -69,14 +69,14 @@ class KMeans:
         - 'first': Uses the first K distinct points from X.
         - 'random': Selects K unique random points from X.
         """
-        self.old_centroids = np.zeros((self.K, self.X.shape[1]))  # Initialize old centroids
+        self.old_centroids = np.zeros((self.K, self.X.shape[1]))
 
         if self.options['km_init'].lower() == 'first':
             # Select the first K distinct points
             seen = set()
             centroids = []
             for point in self.X:
-                tuple_point = tuple(point)  # Convert to tuple for uniqueness check
+                tuple_point = tuple(point)
                 if tuple_point not in seen:
                     seen.add(tuple_point)
                     centroids.append(point)
@@ -107,13 +107,13 @@ class KMeans:
         """
         Updates the centroids by computing the mean of all points assigned to each centroid.
         """
-        self.old_centroids = self.centroids.copy()  # Store the old centroids
+        self.old_centroids = self.centroids.copy()
 
-        new_centroids = np.zeros_like(self.centroids, dtype=np.float64)  # Use float64 for precision
+        new_centroids = np.zeros_like(self.centroids, dtype=np.float64)
         for k in range(self.K):
-            points = self.X[self.labels == k]  # Select all points belonging to cluster k
+            points = self.X[self.labels == k]
             if len(points) > 0:
-                new_centroids[k] = np.mean(points, axis=0, dtype=np.float64)  # Compute mean with high precision
+                new_centroids[k] = np.mean(points, axis=0, dtype=np.float64)
 
         self.centroids = new_centroids.astype(np.float64)
 
@@ -147,20 +147,15 @@ class KMeans:
         self.num_iter = 0
 
         while True:
-            # Assign each point to the nearest centroid
             self.get_labels()
-
-            # Update centroids based on current assignments
             self.get_centroids()
-
-            # Increment iteration counter
             self.num_iter += 1
 
             # Check for convergence
             if self.converges():
                 break
 
-            # Optional: print progress if verbose mode is enabled
+            # Print progress if verbose mode is enabled
             if self.options['verbose'] and self.num_iter % 10 == 0:
                 print(f"Iteration {self.num_iter}, Current WCD: {self.withinClassDistance()}")
 
@@ -179,15 +174,15 @@ class KMeans:
         if not hasattr(self, 'labels') or len(self.labels) == 0:
             return 0.0
 
-        # Get the centroid for each point
         assigned_centroids = self.centroids[self.labels]
-        # Calculate squared distances for all points
+
         squared_distances = np.sum((self.X - assigned_centroids) ** 2, axis=1)
-        # Calculate and return the mean
+
         self.WCD = np.mean(squared_distances)
+
         return self.WCD
 
-    def find_bestK(self, max_K, threshold=20):
+    def find_bestK(self, max_K, threshold=10):
         """
         Finds the optimal number of clusters by analyzing WCD improvement rates.
         Returns the K where WCD improvement drops below threshold.
@@ -246,7 +241,7 @@ class KMeans:
         """
         icd = self.inter_class_distance()
         wcd = self.withinClassDistance()
-        return wcd / (icd + 1e-8)  # add epsilon to avoid division by zero
+        return wcd / (icd + 1e-8)  # adding to avoid division by zero
 
     def find_bestK_by_heuristic(self, max_K=10, method='fisher', verbose=False):
         """
@@ -327,11 +322,8 @@ def get_colors(centroids):
     Returns:
         list: Color labels corresponding to each centroid
     """
-    # Get probability scores for each centroid (Kx11 array)
     color_probs = utils.get_color_prob(centroids)
 
-    # Find index of maximum probability for each centroid
     color_indices = np.argmax(color_probs, axis=1)
 
-    # Return corresponding color names
     return [utils.colors[idx] for idx in color_indices]
